@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { ChromeClient, BrowserLogger } from './types.js';
 import {
   ANSWER_SELECTORS,
@@ -407,6 +408,37 @@ export async function submitPrompt(
   await verifyPromptCommitted(runtime, prompt, 30_000);
 }
 
+export async function uploadAttachmentFile(
+  deps: { runtime: ChromeClient['Runtime']; dom?: ChromeClient['DOM'] },
+  filePath: string,
+  logger: BrowserLogger,
+) {
+  const { runtime, dom } = deps;
+  if (!dom) {
+    throw new Error('DOM domain unavailable while uploading attachments.');
+  }
+  const documentNode = await dom.getDocument();
+  const selectors = ['form input[type="file"]:not([accept])', 'input[type="file"]:not([accept])'];
+  let targetNodeId: number | undefined;
+  for (const selector of selectors) {
+    const result = await dom.querySelector({ nodeId: documentNode.root.nodeId, selector });
+    if (result.nodeId) {
+      targetNodeId = result.nodeId;
+      break;
+    }
+  }
+  if (!targetNodeId) {
+    throw new Error('Unable to locate ChatGPT file attachment input.');
+  }
+  await dom.setFileInputFiles({ nodeId: targetNodeId, files: [filePath] });
+  const expectedName = path.basename(filePath);
+  const ready = await waitForAttachmentSelection(runtime, expectedName, 10_000);
+  if (!ready) {
+    throw new Error('Attachment did not register with the ChatGPT composer in time.');
+  }
+  logger(`Attachment queued: ${expectedName}`);
+}
+
 async function verifyPromptCommitted(Runtime: ChromeClient['Runtime'], prompt: string, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs;
   const encodedPrompt = JSON.stringify(prompt.trim());
@@ -433,6 +465,32 @@ async function verifyPromptCommitted(Runtime: ChromeClient['Runtime'], prompt: s
     await delay(100);
   }
   throw new Error('Prompt did not appear in conversation before timeout (send may have failed)');
+}
+
+async function waitForAttachmentSelection(
+  Runtime: ChromeClient['Runtime'],
+  expectedName: string,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  const expression = `(() => {
+    const selector = 'input[type="file"]:not([accept])';
+    const input = document.querySelector(selector);
+    if (!input || !input.files) {
+      return { matched: false, names: [] };
+    }
+    const names = Array.from(input.files).map((file) => file?.name ?? '');
+    return { matched: names.some((name) => name === ${JSON.stringify(expectedName)}), names };
+  })()`;
+  while (Date.now() < deadline) {
+    const { result } = await Runtime.evaluate({ expression, returnByValue: true });
+    const matched = Boolean(result?.value?.matched);
+    if (matched) {
+      return true;
+    }
+    await delay(150);
+  }
+  return false;
 }
 
 async function attemptSendButton(Runtime: ChromeClient['Runtime']): Promise<boolean> {

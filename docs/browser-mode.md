@@ -4,7 +4,7 @@
 
 ## Current Pipeline
 
-1. **Prompt assembly** – we reuse the normal prompt builder (`buildPrompt`) and the markdown renderer. For now we paste the entire `[SYSTEM]/[USER]/[FILE]` bundle into the ChatGPT composer because the attachment workflow is not implemented yet.
+1. **Prompt assembly** – we reuse the normal prompt builder (`buildPrompt`) and the markdown renderer. Browser mode now pastes only the `[SYSTEM]/[USER]` text into the ChatGPT composer and uploads a temporary `.md` bundle (with the `[FILE: path]` markers) as an attachment before sending the prompt.
 2. **Automation stack** – code lives in `src/browserMode.ts` and is a lightly refactored version of the `oraclecheap` utility:
    - Launches Chrome via `chrome-launcher` and connects with `chrome-remote-interface`.
    - (Optional) copies cookies from the requested macOS Chrome profile via `chrome-cookies-secure` so users stay signed in.
@@ -27,11 +27,7 @@ All options are persisted with the session so reruns (`oracle exec <id>`) reuse 
 
 ## Limitations / Follow-Up Plan
 
-- **File upload parity** – today we simply paste file contents into the composer. The next step is to read the resolved file list, upload each via the ChatGPT attachment picker, and only paste the system+user prompts. Implementation sketch:
-  1. Extend `BrowserPromptArtifacts` to keep both the textual bundle and an array of `{displayPath, absolutePath}` attachments.
-  2. Automate the upload button using DevTools `DOM.performSearch` to locate `<input type="file">` or the new drag target, then use `Input.dispatchDragEvent` to attach each file.
-  3. The existing markdown fallback should only include `[SYSTEM]/[USER]` once file uploads succeed; keep a `--browser-inline-files` escape hatch for debugging.
-  4. Update docs/session metadata to record which files were uploaded vs pasted.
+- **Attachment lifecycle** – we currently collapse all resolved `--file` inputs into a single temporary `.md` document and upload it via the composer’s hidden `<input type="file">`. That keeps uploads stable but we still want to support per-file attachments (and potentially binary uploads) plus a `--browser-inline-files` escape hatch for debugging. Follow-up work should also record attachment metadata in the session logs.
 - **Model picker drift** – we currently rely on heuristics to pick GPT-5.1/GPT-5 Pro. If OpenAI changes the DOM we need to refresh the selectors quickly. Consider snapshot tests or a small “self check” command.
 - **Non-mac platforms** – window hiding uses AppleScript today; Linux/Windows just ignore the flag. We should detect platforms explicitly and document the behavior.
 - **Streaming UX** – browser runs cannot stream tokens, so we log a warning before launching Chrome. Investigate whether we can stream clipboard deltas via mutation observers for a closer UX.

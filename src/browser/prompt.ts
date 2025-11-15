@@ -1,10 +1,22 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import type { RunOracleOptions } from '../oracle.js';
-import { readFiles, buildPrompt, createFileSections, DEFAULT_SYSTEM_PROMPT, MODEL_CONFIGS, TOKENIZER_OPTIONS } from '../oracle.js';
+import {
+  readFiles,
+  buildPrompt,
+  createFileSections,
+  DEFAULT_SYSTEM_PROMPT,
+  MODEL_CONFIGS,
+  TOKENIZER_OPTIONS,
+} from '../oracle.js';
 
 export interface BrowserPromptArtifacts {
   markdown: string;
   composerText: string;
   estimatedInputTokens: number;
+  attachmentFilePath?: string;
 }
 
 interface AssemblePromptDeps {
@@ -27,8 +39,19 @@ export async function assembleBrowserPrompt(
     lines.push(`[FILE: ${section.displayPath}]`, section.content.trimEnd(), '');
   });
   const markdown = lines.join('\n').trimEnd();
-  const composerLines = [`System instructions: ${systemPrompt}`, '', userPrompt];
+  const composerLines = [systemPrompt, '', userPrompt];
   const composerText = composerLines.join('\n').trim();
+  let attachmentFilePath: string | undefined;
+  if (sections.length > 0) {
+    const attachmentLines: string[] = [];
+    sections.forEach((section) => {
+      attachmentLines.push(`[FILE: ${section.displayPath}]`, section.content.trimEnd(), '');
+    });
+    const attachmentMarkdown = attachmentLines.join('\n').trimEnd();
+    const tempName = `oracle-files-${randomUUID()}.md`;
+    attachmentFilePath = path.join(os.tmpdir(), tempName);
+    await fs.writeFile(attachmentFilePath, `${attachmentMarkdown}\n`, 'utf8');
+  }
   const tokenizer = MODEL_CONFIGS[runOptions.model].tokenizer;
   const estimatedInputTokens = tokenizer(
     [
@@ -37,5 +60,5 @@ export async function assembleBrowserPrompt(
     ],
     TOKENIZER_OPTIONS,
   );
-  return { markdown, composerText, estimatedInputTokens };
+  return { markdown, composerText, estimatedInputTokens, attachmentFilePath };
 }

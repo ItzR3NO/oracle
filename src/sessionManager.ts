@@ -57,6 +57,7 @@ export interface StoredRunOptions {
   mode?: SessionMode;
   browserConfig?: BrowserSessionConfig;
   verbose?: boolean;
+  heartbeatIntervalMs?: number;
 }
 
 export interface SessionMetadata {

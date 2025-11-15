@@ -9,6 +9,7 @@ import {
   resolveApiModel,
   inferModelFromLabel,
   normalizeModelOption,
+  parseHeartbeatOption,
 } from '../../src/cli/options.ts';
 
 describe('collectPaths', () => {
@@ -55,6 +56,24 @@ describe('resolvePreviewMode', () => {
   test('returns undefined for falsey values', () => {
     expect(resolvePreviewMode(undefined)).toBeUndefined();
     expect(resolvePreviewMode(false)).toBeUndefined();
+  });
+});
+
+describe('parseHeartbeatOption', () => {
+  test('parses numeric values and defaults to 30 when omitted', () => {
+    expect(parseHeartbeatOption('45')).toBe(45);
+    expect(parseHeartbeatOption(undefined)).toBe(30);
+  });
+
+  test('accepts 0 or false/off to disable heartbeats', () => {
+    expect(parseHeartbeatOption('0')).toBe(0);
+    expect(parseHeartbeatOption('false')).toBe(0);
+    expect(parseHeartbeatOption('off')).toBe(0);
+  });
+
+  test('rejects negative or non-numeric values', () => {
+    expect(() => parseHeartbeatOption('-5')).toThrow(InvalidArgumentError);
+    expect(() => parseHeartbeatOption('nope')).toThrow(InvalidArgumentError);
   });
 });
 

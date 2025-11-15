@@ -25,6 +25,7 @@ import {
   normalizeModelOption,
   resolveApiModel,
   inferModelFromLabel,
+  parseHeartbeatOption,
 } from '../src/cli/options.js';
 import { buildBrowserConfig, resolveBrowserModelLabel } from '../src/cli/browserConfig.js';
 import { performSessionRun } from '../src/cli/sessionRunner.js';
@@ -67,6 +68,7 @@ interface CliOptions extends OptionValues {
   browserAllowCookieErrors?: boolean;
   verbose?: boolean;
   debugHelp?: boolean;
+  heartbeat?: number;
 }
 
 type ResolvedCliOptions = Omit<CliOptions, 'model'> & { model: ModelName };
@@ -131,6 +133,7 @@ program
     new Option('--browser-allow-cookie-errors', 'Continue even if Chrome cookies cannot be copied.').hideHelp(),
   )
   .option('--debug-help', 'Show the advanced/debug option set and exit.', false)
+  .option('--heartbeat <seconds>', 'Emit periodic in-progress updates (0 to disable).', parseHeartbeatOption, 30)
   .showHelpAfterError('(use --help for usage)');
 
 const sessionCommand = program
@@ -207,7 +210,15 @@ function buildRunOptions(options: ResolvedCliOptions, overrides: Partial<RunOrac
     apiKey: overrides.apiKey ?? options.apiKey,
     sessionId: overrides.sessionId ?? options.sessionId,
     verbose: overrides.verbose ?? options.verbose,
+    heartbeatIntervalMs: overrides.heartbeatIntervalMs ?? resolveHeartbeatIntervalMs(options.heartbeat),
   };
+}
+
+function resolveHeartbeatIntervalMs(seconds: number | undefined): number | undefined {
+  if (typeof seconds !== 'number' || seconds <= 0) {
+    return undefined;
+  }
+  return Math.round(seconds * 1000);
 }
 
 function buildRunOptionsFromMetadata(metadata: SessionMetadata): RunOracleOptions {
@@ -228,6 +239,7 @@ function buildRunOptionsFromMetadata(metadata: SessionMetadata): RunOracleOption
     apiKey: undefined,
     sessionId: metadata.id,
     verbose: stored.verbose,
+    heartbeatIntervalMs: stored.heartbeatIntervalMs,
   };
 }
 

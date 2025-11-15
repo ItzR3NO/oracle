@@ -13,6 +13,7 @@ import {
   submitPrompt,
   waitForAssistantResponse,
   captureAssistantMarkdown,
+  uploadAttachmentFile,
 } from './pageActions.js';
 import { estimateTokenCount } from './utils.js';
 
@@ -25,6 +26,9 @@ export async function runBrowserMode(options: BrowserRunOptions): Promise<Browse
   if (!promptText) {
     throw new Error('Prompt text is required when using browser mode.');
   }
+
+  const attachmentFilePath = options.attachmentFilePath ?? null;
+  let attachmentRemoved = attachmentFilePath ? false : true;
 
   const config = resolveBrowserConfig(options.config);
   const logger: BrowserLogger = options.log ?? (() => {});
@@ -62,13 +66,17 @@ export async function runBrowserMode(options: BrowserRunOptions): Promise<Browse
       connectionClosedUnexpectedly = true;
     };
     client.on('disconnect', markConnectionLost);
-    const { Network, Page, Runtime, Input } = client;
+    const { Network, Page, Runtime, Input, DOM } = client;
 
     if (!config.headless && config.hideWindow) {
       await hideChromeWindow(chrome, logger);
     }
 
-    await Promise.all([Network.enable({}), Page.enable(), Runtime.enable()]);
+    const domainEnablers = [Network.enable({}), Page.enable(), Runtime.enable()];
+    if (DOM && typeof DOM.enable === 'function') {
+      domainEnablers.push(DOM.enable());
+    }
+    await Promise.all(domainEnablers);
     await Network.clearBrowserCookies();
 
     if (config.cookieSync) {
@@ -96,6 +104,14 @@ export async function runBrowserMode(options: BrowserRunOptions): Promise<Browse
       await ensureModelSelection(Runtime, config.desiredModel, logger);
       await ensurePromptReady(Runtime, config.inputTimeoutMs, logger);
       logger(`Prompt textarea ready (after model switch, ${promptText.length.toLocaleString()} chars queued)`);
+    }
+    if (attachmentFilePath) {
+      const fileLabel = path.basename(attachmentFilePath);
+      logger(`Uploading attachment bundle: ${fileLabel}`);
+      await uploadAttachmentFile({ runtime: Runtime, dom: DOM }, attachmentFilePath, logger);
+      await rm(attachmentFilePath, { force: true }).catch(() => undefined);
+      attachmentRemoved = true;
+      logger(`Removed temporary attachment file: ${fileLabel}`);
     }
     await submitPrompt({ runtime: Runtime, input: Input }, promptText, logger);
     const answer = await waitForAssistantResponse(Runtime, config.timeoutMs, logger);
@@ -145,6 +161,9 @@ export async function runBrowserMode(options: BrowserRunOptions): Promise<Browse
       // ignore
     }
     removeTerminationHooks?.();
+    if (!attachmentRemoved && attachmentFilePath) {
+      await rm(attachmentFilePath, { force: true }).catch(() => undefined);
+    }
     if (!config.keepBrowser) {
       if (!connectionClosedUnexpectedly) {
         try {
@@ -175,6 +194,7 @@ export {
   submitPrompt,
   waitForAssistantResponse,
   captureAssistantMarkdown,
+  uploadAttachmentFile,
 } from './pageActions.js';
 
 function isWebSocketClosureError(error: Error): boolean {

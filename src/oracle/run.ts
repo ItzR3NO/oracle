@@ -28,6 +28,7 @@ import {
   toTransportError,
 } from './errors.js';
 import { createDefaultClientFactory } from './client.js';
+import { startHeartbeat } from '../heartbeat.js';
 
 const pkgPath = resolvePackageJsonPath(import.meta.url);
 const require = createRequire(import.meta.url);
@@ -152,6 +153,28 @@ export async function runOracle(options: RunOracleOptions, deps: RunOracleDeps =
 
   const runStart = now();
   const stream: ResponseStreamLike = await openAiClient.responses.stream(requestBody);
+  let heartbeatActive = false;
+  let stopHeartbeat: (() => void) | null = null;
+  const stopHeartbeatNow = () => {
+    if (!heartbeatActive) {
+      return;
+    }
+    heartbeatActive = false;
+    stopHeartbeat?.();
+    stopHeartbeat = null;
+  };
+  if (options.heartbeatIntervalMs && options.heartbeatIntervalMs > 0) {
+    heartbeatActive = true;
+    stopHeartbeat = startHeartbeat({
+      intervalMs: options.heartbeatIntervalMs,
+      log: (message) => log(message),
+      isActive: () => heartbeatActive,
+      makeMessage: (elapsedMs) => {
+        const elapsedText = formatElapsed(elapsedMs);
+        return `API connection active — ${elapsedText} elapsed. Expect up to ~10 min before GPT-5 responds.`;
+      },
+    });
+  }
   let sawTextDelta: boolean = false;
   let answerHeaderPrinted = false;
   const ensureAnswerHeader = () => {
@@ -164,6 +187,7 @@ export async function runOracle(options: RunOracleOptions, deps: RunOracleDeps =
   try {
     for await (const event of stream) {
       if (event.type === 'response.output_text.delta') {
+        stopHeartbeatNow();
         sawTextDelta = true;
         ensureAnswerHeader();
         if (!options.silent && typeof event.delta === 'string') {
@@ -175,12 +199,14 @@ export async function runOracle(options: RunOracleOptions, deps: RunOracleDeps =
     if (typeof stream.abort === 'function') {
       stream.abort();
     }
+    stopHeartbeatNow();
     const transportError = toTransportError(streamError);
     log(chalk.yellow(describeTransportError(transportError)));
     throw transportError;
   }
 
   const response = await stream.finalResponse();
+  stopHeartbeatNow();
   logVerbose(`Response status: ${response.status ?? 'completed'}`);
   const elapsedMs = now() - runStart;
 

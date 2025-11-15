@@ -51,8 +51,10 @@ export async function runBrowserSessionExecution(
   log(chalk.dim('Chrome automation does not stream output; this may take a minute...'));
   const browserResult = await executeBrowser({
     prompt: promptArtifacts.composerText,
+    attachmentFilePath: promptArtifacts.attachmentFilePath,
     config: browserConfig,
     log,
+    heartbeatIntervalMs: runOptions.heartbeatIntervalMs,
   });
   if (!runOptions.silent) {
     log(chalk.bold('Answer:'));

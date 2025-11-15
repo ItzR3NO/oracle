@@ -62,4 +62,31 @@ describe('runBrowserSessionExecution', () => {
     );
     expect(log.mock.calls.some((call) => String(call[0]).includes('[verbose]'))).toBe(true);
   });
+
+  test('passes heartbeat interval through to browser runner', async () => {
+    const log = vi.fn();
+    const executeBrowser = vi.fn(async () => ({
+      answerText: 'text',
+      answerMarkdown: 'markdown',
+      tookMs: 10,
+      answerTokens: 1,
+      answerChars: 5,
+    }));
+    await runBrowserSessionExecution(
+      {
+        runOptions: { ...baseRunOptions, heartbeatIntervalMs: 15_000 },
+        browserConfig: baseConfig,
+        cwd: '/repo',
+        log,
+        cliVersion: '1.0.0',
+      },
+      {
+        assemblePrompt: async () => ({ markdown: 'prompt', composerText: 'prompt', estimatedInputTokens: 5 }),
+        executeBrowser,
+      },
+    );
+    expect(executeBrowser).toHaveBeenCalledWith(
+      expect.objectContaining({ heartbeatIntervalMs: 15_000 }),
+    );
+  });
 });

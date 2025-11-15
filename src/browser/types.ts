@@ -43,8 +43,10 @@ export interface BrowserAutomationConfig {
 
 export interface BrowserRunOptions {
   prompt: string;
+  attachmentFilePath?: string;
   config?: BrowserAutomationConfig;
   log?: (message: string) => void;
+  heartbeatIntervalMs?: number;
 }
 
 export interface BrowserRunResult {

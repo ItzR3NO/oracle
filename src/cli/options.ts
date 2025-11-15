@@ -29,6 +29,30 @@ export function parseIntOption(value: string | undefined): number | undefined {
   return parsed;
 }
 
+export function parseHeartbeatOption(value: string | number | undefined): number {
+  if (value == null) {
+    return 30;
+  }
+  if (typeof value === 'number') {
+    if (Number.isNaN(value) || value < 0) {
+      throw new InvalidArgumentError('Heartbeat interval must be zero or a positive number.');
+    }
+    return value;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return 30;
+  }
+  if (normalized === 'false' || normalized === 'off') {
+    return 0;
+  }
+  const parsed = Number.parseFloat(normalized);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    throw new InvalidArgumentError('Heartbeat interval must be zero or a positive number.');
+  }
+  return parsed;
+}
+
 export function usesDefaultStatusFilters(cmd: Command): boolean {
   const hoursSource = cmd.getOptionValueSource?.('hours') ?? 'default';
   const limitSource = cmd.getOptionValueSource?.('limit') ?? 'default';
