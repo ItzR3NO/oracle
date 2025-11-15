@@ -12,6 +12,7 @@ export interface BrowserPromptArtifacts {
   attachments: BrowserAttachment[];
   inlineFileCount: number;
   tokenEstimateIncludesInlineFiles: boolean;
+  bundled?: { originalCount: number; bundlePath: string } | null;
 }
 
 interface AssemblePromptDeps {
@@ -99,5 +100,16 @@ export async function assembleBrowserPrompt(
     TOKENIZER_OPTIONS,
   );
   const tokenEstimateIncludesInlineFiles = inlineFileCount > 0 && Boolean(inlineBlock);
-  return { markdown, composerText, estimatedInputTokens, attachments, inlineFileCount, tokenEstimateIncludesInlineFiles };
+  return {
+    markdown,
+    composerText,
+    estimatedInputTokens,
+    attachments,
+    inlineFileCount,
+    tokenEstimateIncludesInlineFiles,
+    bundled:
+      !inlineFiles && attachments.length === 1 && sections.length > MAX_BROWSER_ATTACHMENTS && attachments[0]?.displayPath
+        ? { originalCount: sections.length, bundlePath: attachments[0].displayPath }
+        : null,
+  };
 }

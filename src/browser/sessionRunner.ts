@@ -51,6 +51,13 @@ export async function runBrowserSessionExecution(
     if (promptArtifacts.attachments.length > 0) {
       const attachmentList = promptArtifacts.attachments.map((attachment) => attachment.displayPath).join(', ');
       log(chalk.dim(`[verbose] Browser attachments: ${attachmentList}`));
+      if (promptArtifacts.bundled) {
+        log(
+          chalk.yellow(
+            `[browser] More than 10 files provided; bundled ${promptArtifacts.bundled.originalCount} files into ${promptArtifacts.bundled.bundlePath} to satisfy ChatGPT upload limits.`,
+          ),
+        );
+      }
     } else if (runOptions.file && runOptions.file.length > 0 && runOptions.browserInlineFiles) {
       log(chalk.dim('[verbose] Browser inline file fallback enabled (pasting file contents).'));
     }

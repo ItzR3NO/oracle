@@ -97,5 +97,6 @@ describe('assembleBrowserPrompt', () => {
     expect(result.attachments).toHaveLength(1);
     expect(result.attachments[0]?.displayPath).toBe('attachments-bundle.txt');
     expect(result.inlineFileCount).toBe(0);
+    expect(result.bundled).toEqual({ originalCount: 11, bundlePath: 'attachments-bundle.txt' });
   });
 });

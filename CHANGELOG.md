@@ -16,6 +16,9 @@ All notable changes to this project will be documented in this file.
 - Masked API key logging now shows first/last 4 characters (e.g., `OPENAI_API_KEY=sk-p****qfAA`).
 - Suppressed duplicate session header on reattach and removed repeated background response IDs in heartbeats.
 
+### Browser mode
+- When more than 10 files are provided, automatically bundles all files into a single `attachments-bundle.txt` to stay under ChatGPT’s upload cap and logs a verbose warning when bundling occurs.
+
 ## 1.0.5 — 2025-11-15
 
 ### Added
