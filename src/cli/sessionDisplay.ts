@@ -168,8 +168,8 @@ function printStatusExamples(): void {
   console.log(dim('    Show 72h of history capped at 50 entries.'));
   console.log(`${chalk.bold('  oracle status clear --hours 168')}`);
   console.log(dim('    Delete sessions older than 7 days (use --all to wipe everything).'));
-  console.log(`${chalk.bold('  oracle status <session-id>')}`);
-  console.log(dim('    Attach to a specific running/completed session (alias: oracle session <session-id>).'));
+  console.log(`${chalk.bold('  oracle session <session-id>')}`);
+  console.log(dim('    Attach to a specific running/completed session to stream its output.'));
 }
 
 function formatRelativeDuration(referenceIso: string): string | null {

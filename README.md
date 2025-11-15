@@ -57,7 +57,7 @@ Need search toggles, token overrides, or Chrome tweaks? `oracle --help --verbose
 
 Every non-preview run spawns a detached worker and logs to `~/.oracle/sessions/<slug>`. You can:
 
-- `oracle session <sessionId>` – replay and follow a specific session.
+- `oracle session <sessionId>` / `oracle status <sessionId>` – replay and follow a specific session.
 - `oracle session` / `oracle status` – list recent runs (24 h window by default; tweak with `--hours/--limit/--all`).
 - `oracle status clear --hours 168` – prune logs older than a week (or `--all` for a full reset).
 
