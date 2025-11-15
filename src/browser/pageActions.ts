@@ -443,12 +443,14 @@ export async function uploadAttachmentFile(
     }
   }
   if (!targetNodeId) {
+    await logDomFailure(runtime, logger, 'file-input');
     throw new Error('Unable to locate ChatGPT file attachment input.');
   }
   await dom.setFileInputFiles({ nodeId: targetNodeId, files: [attachment.path] });
   const expectedName = path.basename(attachment.path);
   const ready = await waitForAttachmentSelection(runtime, expectedName, 10_000);
   if (!ready) {
+    await logDomFailure(runtime, logger, 'file-upload');
     throw new Error('Attachment did not register with the ChatGPT composer in time.');
   }
   logger(`Attachment queued: ${attachment.displayPath}`);
@@ -484,6 +486,7 @@ export async function waitForAttachmentCompletion(
     await delay(250);
   }
   logger?.('Attachment upload timed out while waiting for ChatGPT composer to become ready.');
+  await logDomFailure(Runtime, logger ?? (() => {}), 'file-upload-timeout');
   throw new Error('Attachments did not finish uploading before timeout.');
 }
 
