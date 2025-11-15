@@ -1,17 +1,23 @@
 # oracle
 
-Oracle is a one-shot CLI for GPT-5 Pro / GPT-5.1 when you need deep reasoning plus lots of local context. Point it at your prompt and the relevant files (code, logs, docs); Oracle bundles everything into the Responses API, keeps the run alive in the background, and records a searchable transcript.
+Oracle is a one-shot CLI for GPT-5 Pro / GPT-5.1 when you need deep reasoning plus lots of local context. Point it at your prompt and the relevant files (code, logs, docs); Oracle bundles everything into either the Responses API (needs `OPENAI_API_KEY`) or the ChatGPT web UI (no key required), keeps the run alive in the background, and records a searchable transcript.
 
 ## Quick start
 
 ```bash
 pnpm install
+
+# Responses API path (requires an OPENAI_API_KEY)
 OPENAI_API_KEY=sk-... pnpm run oracle -- \
   --prompt "Summarize the risk register" \
   --file docs/risk-register.md docs/risk-matrix.md
+
+# Browser path (no API key needed)
+pnpm run oracle -- --browser --prompt "Summarize the risk register" \
+  --file docs/risk-register.md docs/risk-matrix.md
 ```
 
-Prefer the compiled binary? `pnpm run build && node dist/bin/oracle.js --prompt ...` works too. Always attach the files/directories that explain the issue, then check `--files-report` to keep the combined token count within the ~196k window.
+Prefer the compiled binary? `pnpm run build && node dist/bin/oracle.js --prompt ...` works too. Whether you hit the API or the browser, attach the files/directories that explain the issue and run `--files-report` to stay within the ~196k-token window.
 
 ## Highlights
 
@@ -20,7 +26,7 @@ Prefer the compiled binary? `pnpm run build && node dist/bin/oracle.js --prompt 
 - **File attachments with Markdown wrapping** and per-file token accounting via `--files-report`.
 - **Preview & render modes** (`--preview`, `--render-markdown`) help inspect the assembled bundle before spending API credits.
 - **Detached sessions + disk logs** under `~/.oracle/sessions/<slug>` with cost + usage metadata.
-- **Browser mode** (`--browser`) automates ChatGPT in Chrome, mirroring the same session/usage tracking when you need the consumer UI instead of the API.
+- **Browser mode** (`--browser`) automates ChatGPT in Chrome—no API key required—while mirroring the same session/usage tracking you get from the Responses API path.
 - **Advanced flags on demand** – run `oracle --help --verbose` (or `oracle --debug-help`) to reveal the less common search/token/browser toggles without cluttering the primary help output.
 
 ## Everyday flags
