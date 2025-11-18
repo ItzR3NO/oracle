@@ -143,7 +143,7 @@ function sanitizePreview(preview?: string): string | undefined {
   // Collapse whitespace and trim.
   text = text.replace(/\s+/g, ' ').trim();
   // Limit length to keep notifications short.
-  const max = 140;
+  const max = 200;
   if (text.length > max) {
     text = `${text.slice(0, max - 1)}…`;
   }
