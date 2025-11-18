@@ -2,6 +2,7 @@ import notifier from 'toasted-notifier';
 import { formatUSD, formatNumber } from '../oracle/format.js';
 import { MODEL_CONFIGS } from '../oracle/config.js';
 import type { SessionMode, SessionMetadata } from '../sessionManager.js';
+import type { NotifyConfig } from '../config.js';
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -28,14 +29,15 @@ export function resolveNotificationSettings(
     cliNotify,
     cliNotifySound,
     env,
-  }: { cliNotify?: boolean; cliNotifySound?: boolean; env: NodeJS.ProcessEnv },
+    config,
+  }: { cliNotify?: boolean; cliNotifySound?: boolean; env: NodeJS.ProcessEnv; config?: NotifyConfig },
 ): NotificationSettings {
-  const defaultEnabled = !(bool(env.CI) || bool(env.SSH_CONNECTION));
+  const defaultEnabled = !(bool(env.CI) || bool(env.SSH_CONNECTION) || muteByConfig(env, config));
   const envNotify = parseToggle(env.ORACLE_NOTIFY);
   const envSound = parseToggle(env.ORACLE_NOTIFY_SOUND);
 
-  const enabled = cliNotify ?? envNotify ?? defaultEnabled;
-  const sound = cliNotifySound ?? envSound ?? false;
+  const enabled = cliNotify ?? envNotify ?? config?.enabled ?? defaultEnabled;
+  const sound = cliNotifySound ?? envSound ?? config?.sound ?? false;
 
   return { enabled, sound };
 }
@@ -43,11 +45,12 @@ export function resolveNotificationSettings(
 export function deriveNotificationSettingsFromMetadata(
   metadata: SessionMetadata | null,
   env: NodeJS.ProcessEnv,
+  config?: NotifyConfig,
 ): NotificationSettings {
   if (metadata?.notifications) {
     return metadata.notifications;
   }
-  return resolveNotificationSettings({ cliNotify: undefined, cliNotifySound: undefined, env });
+  return resolveNotificationSettings({ cliNotify: undefined, cliNotifySound: undefined, env, config });
 }
 
 export async function sendSessionNotification(
@@ -115,4 +118,12 @@ function parseToggle(value: string | undefined): boolean | undefined {
 
 function bool(value: unknown): boolean {
   return Boolean(value && String(value).length > 0);
+}
+
+function muteByConfig(env: NodeJS.ProcessEnv, config?: NotifyConfig): boolean {
+  if (!config?.muteIn) return false;
+  return (
+    (config.muteIn.includes('CI') && bool(env.CI)) ||
+    (config.muteIn.includes('SSH') && bool(env.SSH_CONNECTION))
+  );
 }

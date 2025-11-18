@@ -74,6 +74,10 @@ oracle session <id>                 # replay a run locally
 - **File safety** — Per-file token accounting and size guards; `--files-report` shows exactly what you’re sending.
 - **Readable previews** — `--preview` / `--render-markdown` let you inspect the bundle before spending.
 
+## Configuration
+
+Put per-user defaults in `~/.oracle/config.json5` (JSON5 allows comments). Example settings cover default engine/model, notifications, browser defaults, and prompt suffixes. See `docs/configuration.md` for a complete example and precedence.
+
 ## Flags you’ll actually use
 
 | Flag | Purpose |

@@ -23,6 +23,7 @@ import { MAX_RENDER_BYTES, trimBeforeFirstAnswer } from '../sessionDisplay.js';
 import type { BrowserSessionConfig } from '../../sessionManager.js';
 import { buildBrowserConfig, resolveBrowserModelLabel } from '../browserConfig.js';
 import { resolveNotificationSettings } from '../notifier.js';
+import { loadUserConfig, type UserConfig } from '../../config.js';
 
 const isTty = (): boolean => Boolean(process.stdout.isTTY && chalk.level > 0);
 const dim = (text: string): string => (isTty() ? kleur.dim(text) : text);
@@ -37,6 +38,7 @@ export interface LaunchTuiOptions {
 }
 
 export async function launchTui({ version }: LaunchTuiOptions): Promise<void> {
+  const userConfig = (await loadUserConfig()).config;
   console.log(chalk.bold(`🧿 oracle v${version}`), dim('— Whispering your tokens to the silicon sage'));
   console.log('');
   let olderOffset = 0;
@@ -90,7 +92,7 @@ export async function launchTui({ version }: LaunchTuiOptions): Promise<void> {
       continue;
     }
     if (selection === '__ask__') {
-      await askOracleFlow(version);
+      await askOracleFlow(version, userConfig);
       continue;
     }
     await showSessionDetail(selection);
@@ -267,10 +269,11 @@ interface WizardAnswers {
   mode?: SessionMode;
 }
 
-async function askOracleFlow(version: string): Promise<void> {
+async function askOracleFlow(version: string, userConfig: UserConfig): Promise<void> {
   const modelChoices = Object.keys(MODEL_CONFIGS) as ModelName[];
   const hasApiKey = Boolean(process.env.OPENAI_API_KEY);
   const initialMode: SessionMode = hasApiKey ? 'api' : 'browser';
+  const preferredMode: SessionMode = (userConfig.engine as SessionMode | undefined) ?? initialMode;
 
   const answers = await inquirer.prompt<
     WizardAnswers & { mode: SessionMode; promptInput: string }
@@ -286,7 +289,7 @@ async function askOracleFlow(version: string): Promise<void> {
             name: 'mode',
             type: 'list',
             message: 'Engine',
-            default: initialMode,
+            default: preferredMode,
             choices: [
               { name: 'API', value: 'api' },
               { name: 'Browser', value: 'browser' },
@@ -298,7 +301,7 @@ async function askOracleFlow(version: string): Promise<void> {
             name: 'mode',
             type: 'list',
             message: 'Engine',
-            default: initialMode,
+            default: preferredMode,
             choices: [{ name: 'Browser', value: 'browser' }],
           } as DistinctQuestion<WizardAnswers & { mode: SessionMode }>,
         ]),
@@ -360,9 +363,10 @@ async function askOracleFlow(version: string): Promise<void> {
     console.log(chalk.yellow('Cancelled.'));
     return;
   }
+  const promptWithSuffix = userConfig.promptSuffix ? `${prompt.trim()}\n${userConfig.promptSuffix}` : prompt;
   await ensureSessionStorage();
   const runOptions: RunOracleOptions = {
-    prompt,
+    prompt: promptWithSuffix,
     model: answers.model,
     file: answers.files,
     slug: answers.slug,
@@ -399,6 +403,7 @@ async function askOracleFlow(version: string): Promise<void> {
     cliNotify: undefined,
     cliNotifySound: undefined,
     env: process.env,
+    config: userConfig.notify,
   });
 
   const sessionMeta = await initializeSession(

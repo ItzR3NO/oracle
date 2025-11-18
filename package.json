@@ -43,6 +43,7 @@
     "chrome-remote-interface": "^0.33.3",
     "commander": "^14.0.2",
     "dotenv": "^17.2.3",
+    "json5": "^2.2.3",
     "fast-glob": "^3.3.3",
     "gpt-tokenizer": "^3.4.0",
     "inquirer": "^9.3.8",
@@ -57,6 +58,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.5",
+    "@types/json5": "^0.0.30",
     "@types/chrome-remote-interface": "^0.31.14",
     "@types/inquirer": "^9.0.9",
     "@types/node": "^24.10.1",

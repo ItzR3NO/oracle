@@ -1,0 +1,42 @@
+# Local configuration (JSON5)
+
+Oracle reads an optional per-user config from `~/.oracle/config.json5`. The file uses JSON5, so trailing commas and comments are allowed.
+
+## Example (`~/.oracle/config.json5`)
+
+```json5
+{
+  // Default engine when neither CLI flag nor env decide
+  engine: "api",           // or "browser"
+  model: "gpt-5-pro",
+  search: "on",            // "on" | "off"
+
+  notify: {
+    enabled: true,          // default notifications (still auto-mutes in CI/SSH unless forced on)
+    sound: false,           // play a sound on completion
+    muteIn: ["CI", "SSH"], // auto-disable when these env vars are set
+  },
+
+  browser: {
+    chromeProfile: "Default",
+    chromePath: null,
+    url: null,
+    timeoutMs: 900000,
+    inputTimeoutMs: 30000,
+    headless: false,
+    hideWindow: false,
+    keepBrowser: false,
+  },
+
+  heartbeatSeconds: 30,     // default heartbeat interval
+  filesReport: false,       // default per-file token report
+  background: true,         // default background mode for API runs
+  promptSuffix: "// signed-off by me" // appended to every prompt
+}
+```
+
+## Precedence
+
+CLI flags → environment (`ORACLE_*`, `OPENAI_API_KEY`, etc.) → `config.json5` → built-in defaults.
+
+If the config is missing or invalid, Oracle falls back to defaults and prints a warning for parse errors.

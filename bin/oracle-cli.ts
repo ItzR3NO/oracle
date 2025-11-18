@@ -47,6 +47,7 @@ import {
   deriveNotificationSettingsFromMetadata,
   type NotificationSettings,
 } from '../src/cli/notifier.js';
+import { loadUserConfig, type UserConfig } from '../src/config.js';
 
 interface CliOptions extends OptionValues {
   prompt?: string;
@@ -363,6 +364,7 @@ function getBrowserConfigFromMetadata(metadata: SessionMetadata): BrowserSession
 }
 
 async function runRootCommand(options: CliOptions): Promise<void> {
+  const userConfig = (await loadUserConfig()).config;
   const helpRequested = rawCliArgs.some((arg: string) => arg === '--help' || arg === '-h');
   if (helpRequested) {
     if (options.verbose) {
@@ -396,9 +398,22 @@ async function runRootCommand(options: CliOptions): Promise<void> {
     throw new Error('--dry-run cannot be combined with --render-markdown.');
   }
 
-  const engine: EngineMode = resolveEngine({ engine: options.engine, browserFlag: options.browser, env: process.env });
+  const preferredEngine = options.engine ?? userConfig.engine;
+  const engine: EngineMode = resolveEngine({ engine: preferredEngine, browserFlag: options.browser, env: process.env });
   if (options.browser) {
     console.log(chalk.yellow('`--browser` is deprecated; use `--engine browser` instead.'));
+  }
+  if (program.getOptionValueSource?.('model') === 'default' && userConfig.model) {
+    options.model = userConfig.model;
+  }
+  if (program.getOptionValueSource?.('search') === 'default' && userConfig.search) {
+    options.search = userConfig.search === 'on';
+  }
+  if (program.getOptionValueSource?.('filesReport') === 'default' && userConfig.filesReport != null) {
+    options.filesReport = Boolean(userConfig.filesReport);
+  }
+  if (program.getOptionValueSource?.('heartbeat') === 'default' && typeof userConfig.heartbeatSeconds === 'number') {
+    options.heartbeat = userConfig.heartbeatSeconds;
   }
   const cliModelArg = normalizeModelOption(options.model) || 'gpt-5-pro';
   const resolvedModel: ModelName = engine === 'browser' ? inferModelFromLabel(cliModelArg) : resolveApiModel(cliModelArg);
@@ -433,6 +448,10 @@ async function runRootCommand(options: CliOptions): Promise<void> {
     if (!options.prompt) {
       throw new Error('Prompt is required when using --preview.');
     }
+    if (userConfig.promptSuffix) {
+      options.prompt = `${options.prompt.trim()}\n${userConfig.promptSuffix}`;
+    }
+    resolvedOptions.prompt = options.prompt;
     const runOptions = buildRunOptions(resolvedOptions, { preview: true, previewMode });
     if (engine === 'browser') {
       await runBrowserPreview(
@@ -455,6 +474,11 @@ async function runRootCommand(options: CliOptions): Promise<void> {
     throw new Error('Prompt is required when starting a new session.');
   }
 
+  if (userConfig.promptSuffix) {
+    options.prompt = `${options.prompt.trim()}\n${userConfig.promptSuffix}`;
+  }
+  resolvedOptions.prompt = options.prompt;
+
   if (options.dryRun) {
     const baseRunOptions = buildRunOptions(resolvedOptions, { preview: false, previewMode: undefined });
     await runDryRunSummary(
@@ -474,10 +498,13 @@ async function runRootCommand(options: CliOptions): Promise<void> {
     await readFiles(options.file, { cwd: process.cwd() });
   }
 
+  applyBrowserDefaultsFromConfig(options, userConfig);
+
   const notifications = resolveNotificationSettings({
     cliNotify: options.notify,
     cliNotifySound: options.notifySound,
     env: process.env,
+    config: userConfig.notify,
   });
 
   const sessionMode: SessionMode = engine === 'browser' ? 'browser' : 'api';
@@ -493,7 +520,11 @@ async function runRootCommand(options: CliOptions): Promise<void> {
       : undefined;
 
   await ensureSessionStorage();
-  const baseRunOptions = buildRunOptions(resolvedOptions, { preview: false, previewMode: undefined });
+  const baseRunOptions = buildRunOptions(resolvedOptions, {
+    preview: false,
+    previewMode: undefined,
+    background: userConfig.background ?? resolvedOptions.background,
+  });
   const sessionMeta = await initializeSession(
     {
       ...baseRunOptions,
@@ -516,7 +547,7 @@ async function runRootCommand(options: CliOptions): Promise<void> {
       return false;
     });
   if (detached === false) {
-    await runInteractiveSession(sessionMeta, liveRunOptions, sessionMode, browserConfig, true, notifications);
+    await runInteractiveSession(sessionMeta, liveRunOptions, sessionMode, browserConfig, true, notifications, userConfig);
     console.log(chalk.bold(`Session ${sessionMeta.id} completed`));
     return;
   }
@@ -534,6 +565,7 @@ async function runInteractiveSession(
   browserConfig?: BrowserSessionConfig,
   showReattachHint = true,
   notifications?: NotificationSettings,
+  userConfig?: UserConfig,
 ): Promise<void> {
   const { logLine, writeChunk, stream } = createSessionLogWriter(sessionMeta.id);
   let headerAugmented = false;
@@ -565,7 +597,8 @@ async function runInteractiveSession(
       log: combinedLog,
       write: combinedWrite,
       version: VERSION,
-      notifications: notifications ?? deriveNotificationSettingsFromMetadata(sessionMeta, process.env),
+      notifications:
+        notifications ?? deriveNotificationSettingsFromMetadata(sessionMeta, process.env, userConfig?.notify),
     });
   } catch (error) {
     throw error;
@@ -605,7 +638,8 @@ async function executeSession(sessionId: string) {
   const sessionMode = getSessionMode(metadata);
   const browserConfig = getBrowserConfigFromMetadata(metadata);
   const { logLine, writeChunk, stream } = createSessionLogWriter(sessionId);
-  const notifications = deriveNotificationSettingsFromMetadata(metadata, process.env);
+  const userConfig = (await loadUserConfig()).config;
+  const notifications = deriveNotificationSettingsFromMetadata(metadata, process.env, userConfig.notify);
   try {
     await performSessionRun({
       sessionMeta: metadata,
@@ -655,6 +689,37 @@ function printDebugOptionGroup(entries: Array<[string, string]>): void {
     const label = chalk.cyan(flag.padEnd(flagWidth + 2));
     console.log(`  ${label}${description}`);
   });
+}
+
+function applyBrowserDefaultsFromConfig(options: CliOptions, config: UserConfig): void {
+  const browser = config.browser;
+  if (!browser) return;
+  const source = (key: keyof CliOptions) => program.getOptionValueSource?.(key as string);
+
+  if (source('browserChromeProfile') === 'default' && browser.chromeProfile !== undefined) {
+    options.browserChromeProfile = browser.chromeProfile ?? undefined;
+  }
+  if (source('browserChromePath') === 'default' && browser.chromePath !== undefined) {
+    options.browserChromePath = browser.chromePath ?? undefined;
+  }
+  if (source('browserUrl') === 'default' && browser.url !== undefined) {
+    options.browserUrl = browser.url;
+  }
+  if (source('browserTimeout') === 'default' && typeof browser.timeoutMs === 'number') {
+    options.browserTimeout = String(browser.timeoutMs);
+  }
+  if (source('browserInputTimeout') === 'default' && typeof browser.inputTimeoutMs === 'number') {
+    options.browserInputTimeout = String(browser.inputTimeoutMs);
+  }
+  if (source('browserHeadless') === 'default' && browser.headless !== undefined) {
+    options.browserHeadless = browser.headless;
+  }
+  if (source('browserHideWindow') === 'default' && browser.hideWindow !== undefined) {
+    options.browserHideWindow = browser.hideWindow;
+  }
+  if (source('browserKeepBrowser') === 'default' && browser.keepBrowser !== undefined) {
+    options.browserKeepBrowser = browser.keepBrowser;
+  }
 }
 
 program.action(async function (this: Command) {

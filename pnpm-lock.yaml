@@ -38,6 +38,9 @@ importers:
       inquirer:
         specifier: ^9.3.8
         version: 9.3.8(@types/node@24.10.1)
+      json5:
+        specifier: ^2.2.3
+        version: 2.2.3
       keytar:
         specifier: ^7.9.0
         version: 7.9.0
@@ -72,6 +75,9 @@ importers:
       '@types/inquirer':
         specifier: ^9.0.9
         version: 9.0.9
+      '@types/json5':
+        specifier: ^0.0.30
+        version: 0.0.30
       '@types/node':
         specifier: ^24.10.1
         version: 24.10.1
@@ -547,6 +553,9 @@ packages:
 
   '@types/inquirer@9.0.9':
     resolution: {integrity: sha512-/mWx5136gts2Z2e5izdoRCo46lPp5TMs9R15GTSsgg/XnZyxDWVqoVU3R9lWnccKpqwsJLvRoxbCjoJtZB7DSw==}
+
+  '@types/json5@0.0.30':
+    resolution: {integrity: sha512-sqm9g7mHlPY/43fcSNrCYfOeX9zkTTK+euO5E6+CVijSMm5tTjkVdwdqRkY3ljjIAf8679vps5jKUoJBCLsMDA==}
 
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
@@ -1370,6 +1379,11 @@ packages:
 
   json-schema-traverse@1.0.0:
     resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
+
+  json5@2.2.3:
+    resolution: {integrity: sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==}
+    engines: {node: '>=6'}
+    hasBin: true
 
   keytar@7.9.0:
     resolution: {integrity: sha512-VPD8mtVtm5JNtA2AErl6Chp06JBfy7diFQ7TQQhdpWOl6MrCRB+eRbvAZUsbGQS9kiMq0coJsy0W0vHpDCkWsQ==}
@@ -2693,6 +2707,8 @@ snapshots:
       '@types/through': 0.0.33
       rxjs: 7.8.2
 
+  '@types/json5@0.0.30': {}
+
   '@types/mdast@4.0.4':
     dependencies:
       '@types/unist': 3.0.3
@@ -3611,6 +3627,8 @@ snapshots:
   js-tokens@9.0.1: {}
 
   json-schema-traverse@1.0.0: {}
+
+  json5@2.2.3: {}
 
   keytar@7.9.0:
     dependencies:
