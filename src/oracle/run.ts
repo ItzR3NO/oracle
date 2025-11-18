@@ -159,15 +159,6 @@ export async function runOracle(options: RunOracleOptions, deps: RunOracleDeps =
     );
   }
 
-  const requestBody = buildRequestBody({
-    modelConfig,
-    systemPrompt,
-    userPrompt: promptWithFiles,
-    searchEnabled,
-    maxOutputTokens: options.maxOutput,
-    background: useBackground,
-    storeResponse: useBackground,
-  });
   logVerbose(`Estimated tokens (request body): ${estimatedInputTokens.toLocaleString()}`);
 
   if (isPreview && previewMode) {
