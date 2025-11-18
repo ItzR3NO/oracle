@@ -6,6 +6,7 @@ import type { NotifyConfig } from '../config.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -79,7 +80,7 @@ export async function sendSessionNotification(
       const repaired = await repairMacNotifier(log);
       if (repaired) {
         try {
-          await notifier.notify({ title, message, sound: settings.sound });
+          await notifier.notify({ title, message, sound: settings.sound, ...(macAppIconOption()) });
           return;
         } catch (retryError) {
           const reason = retryError instanceof Error ? retryError.message : String(retryError);
@@ -176,6 +177,28 @@ function macNotifierPath(): string | null {
     );
   } catch {
     return null;
+  }
+}
+
+function macAppIconOption(): Record<string, string> {
+  if (process.platform !== 'darwin') return {};
+  const iconPaths = [
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../assets-oracle-icon.png'),
+    path.resolve(process.cwd(), 'assets-oracle-icon.png'),
+  ];
+  for (const candidate of iconPaths) {
+    if (candidate && fsExistsSync(candidate)) {
+      return { appIcon: candidate };
+    }
+  }
+  return {};
+}
+
+function fsExistsSync(target: string): boolean {
+  try {
+    return Boolean(require('node:fs').statSync(target));
+  } catch {
+    return false;
   }
 }
 
