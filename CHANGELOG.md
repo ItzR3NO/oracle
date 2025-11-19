@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file.
 - macOS notifier helper now ships signed/notarized with the Oracle icon and auto-repairs execute bits for the fallback terminal-notifier.
 - Session summaries and cost displays are clearer, with zombie-session detection to avoid stale runs.
 - Token estimation now uses the full request body (instructions + input text + tools/reasoning/background/store) and compares estimated vs actual tokens in the finished stats to reduce 400/413 surprises.
+- Help tips now explicitly warn that Oracle cannot see your project unless you pass `--file …` to attach the necessary source.
 
 #### MCP configuration (quick reference)
 - Local stdio (mcporter): add to `config/mcporter.json`
