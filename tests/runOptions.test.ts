@@ -4,7 +4,7 @@ import { estimateRequestTokens } from '../src/oracle/tokenEstimate.js';
 import { MODEL_CONFIGS } from '../src/oracle/config.js';
 
 describe('resolveRunOptionsFromConfig', () => {
-  const basePrompt = 'Hello';
+  const basePrompt = 'This prompt is comfortably above twenty characters.';
 
   it('uses config engine when none provided and env lacks OPENAI_API_KEY', () => {
     const { resolvedEngine } = resolveRunOptionsFromConfig({
@@ -34,10 +34,10 @@ describe('resolveRunOptionsFromConfig', () => {
 
   it('appends prompt suffix from config', () => {
     const { runOptions } = resolveRunOptionsFromConfig({
-      prompt: 'Hi',
+      prompt: 'Hi there, this exceeds twenty characters.',
       userConfig: { promptSuffix: '// signed' },
     });
-    expect(runOptions.prompt).toBe('Hi\n// signed');
+    expect(runOptions.prompt).toBe('Hi there, this exceeds twenty characters.\n// signed');
   });
 
   it('honors search off', () => {
