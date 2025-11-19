@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Native Azure OpenAI support! Set `AZURE_OPENAI_ENDPOINT` (plus `AZURE_OPENAI_API_KEY` and optionally `AZURE_OPENAI_DEPLOYMENT`/`AZURE_OPENAI_API_VERSION`) or use the new CLI flags (`--azure-endpoint`, `--azure-deployment`, etc.) to switch automatically to the Azure client.
 - **Gemini 3 Pro Support**: Use Google's latest model via `oracle --model gemini`. Requires `GEMINI_API_KEY`.
+- Configurable API timeout: `--timeout <seconds|auto>` (default auto = 20m for gpt-5-pro, 30s for other models). Enforced for streaming and background runs.
 - Help text tip: best results come from 6–30 sentences plus key source files; very short prompts tend to be generic.
 - Inline runs now print a single completion line (removed duplicate “Finished” summary), keeping output concise.
 - Gemini runs stay on API (no browser detours), and the CLI logs the resolved model id alongside masked keys when it differs.
