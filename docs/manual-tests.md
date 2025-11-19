@@ -17,6 +17,21 @@ and run the live API suite before shipping major transport changes.
 
 ## Test Cases
 
+### Multi-Model CLI fan-out
+
+Run this whenever you touch the session store, CLI session views, or TUI wiring for multi-model runs.
+
+1. Kick off an API multi-run:  
+   `pnpm run oracle -- --models "gpt-5-pro,gemini-3-pro" --prompt "Compare the moon & sun."`
+   - Expect stdout to print sequential sections, one per model (`[gpt-5-pro] …` followed by `[gemini-3-pro] …`). No interleaved tokens.
+2. Capture the session ID from the summary line. Run `oracle session --status --model gpt-5-pro`.  
+   - Table should collapse to sessions that include GPT-5 Pro and show status icons (✓/⌛/✖) per model.
+3. Inspect detailed logs: `oracle session <id>`
+   - The metadata header now includes a `Models:` block with one line per model plus token counts.
+   - When prompted, pick `View gemini-3-pro log` and confirm only that model’s stream renders. Refresh should keep completed models intact even if others still run.
+4. Model filter path: `oracle session <id> --model gemini-3-pro`  
+   - Attach mode should error if that model is missing (double-check by filtering for a bogus model), otherwise it should render the prompt + single-model log only.
+
 ### Lightweight Browser CLI (manual exploration)
 
 Before running any agent-driven debugging, you can rely on the TypeScript CLI in `scripts/browser-tools.ts`:

@@ -47,6 +47,7 @@ Every session keeps the same top-level directory (`~/.oracle/sessions/<sessionId
 ```
 sessionId/
 ├── meta.json             # shared session metadata + request payload
+├── output.log            # combined view (headers + concatenated model logs)
 └── models/
     ├── gpt-5-pro.json    # per-model metadata snapshot
     ├── gpt-5-pro.log     # streaming log (append-only, plain text)
@@ -58,6 +59,7 @@ sessionId/
 Properties:
 
 - `meta.json` mirrors the old `session.json` payload (prompt, files, flags, effective model ids), so replay tools can load context without parsing every per-model file.
+- `output.log` remains the human-readable combined transcript. We append a header (`=== gpt-5-pro ===`) before each per-model log dump so `oracle session <id>` can replay everything sequentially without interleaving tokens.
 - `models/<name>.json` stores:
   ```json5
   {
@@ -100,6 +102,12 @@ The overall session status is implicit: if any model is `running`, we render the
   - Without `--model`: iterate models in alphabetical order, printing a header and then the corresponding log file (entire contents once completed; live tail when still running).
   - With `--model foo`: only print metadata and log for `foo`.
   - When a log exceeds the render limit, fall back to raw text (same behavior as today).
+
+## TUI / Session Detail UX
+
+- Launch `oracle` with no args to open the TUI. Selecting a session now shows a `Models:` summary that lists each model, status, and token usage totals.
+- Actions include “View combined log” plus one entry per model (`View gpt-5-pro log (completed)` etc.). This keeps the combined log deterministic while still letting you inspect an individual log in isolation.
+- Refreshing the detail screen re-reads metadata/logs so partial completions (some models done, others still running) are accurately reflected without restarting the TUI.
 
 ---
 

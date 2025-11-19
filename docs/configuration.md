@@ -32,6 +32,7 @@ Oracle reads an optional per-user config from `~/.oracle/config.json`. The file 
   heartbeatSeconds: 30,     // default heartbeat interval
   filesReport: false,       // default per-file token report
   background: true,         // default background mode for API runs
+  sessionRetentionHours: 72, // prune cached sessions older than 72h before each run (0 disables)
   promptSuffix: "// signed-off by me", // appended to every prompt
   apiBaseUrl: "https://api.openai.com/v1" // override for LiteLLM / custom gateways
 }
@@ -44,7 +45,18 @@ CLI flags → `config.json` → environment → built-in defaults.
 - `engine`, `model`, `search`, `filesReport`, `heartbeatSeconds`, and `apiBaseUrl` in `config.json` override the auto-detected values unless explicitly set on the CLI.
 - `OPENAI_API_KEY` only influences engine selection when neither the CLI nor `config.json` specify an engine (API when present, otherwise browser).
 - `ORACLE_NOTIFY*` env vars still layer on top of the config’s `notify` block.
+- `sessionRetentionHours` controls the default value for `--retain-hours`. When unset, `ORACLE_RETAIN_HOURS` (if present) becomes the fallback, and the CLI flag still wins over both.
 
 If the config is missing or invalid, Oracle falls back to defaults and prints a warning for parse errors.
 
 Chromium-based browsers usually need both `chromePath` (binary) and `chromeCookiePath` (cookie DB) set so automation can launch the right executable and reuse your login. See [docs/chromium-forks.md](chromium-forks.md) for detailed paths per browser/OS.
+
+## Session retention
+
+Each invocation can optionally prune cached sessions before starting new work:
+
+- `--retain-hours <n>` deletes sessions older than `<n>` hours right before the run begins. Use `0` (or omit the flag) to skip pruning.
+- In `config.json`, set `sessionRetentionHours` to apply pruning automatically for every CLI/TUI/MCP invocation.
+- Set `ORACLE_RETAIN_HOURS` in the environment to override the config on shared machines without editing the JSON file.
+
+Under the hood, pruning removes entire session directories (metadata + logs). The command-line cleanup command (`oracle session --clear`) still exists when you need to wipe everything manually.
