@@ -69,6 +69,13 @@ export async function runBrowserSessionExecution(
     }
   }
   const headerLine = `oracle (${cliVersion}) launching browser mode (${runOptions.model}) with ~${promptArtifacts.estimatedInputTokens.toLocaleString()} tokens`;
+  if (promptArtifacts.bundled) {
+    log(
+      chalk.yellow(
+        `[browser] Packed ${promptArtifacts.bundled.originalCount} files into ${promptArtifacts.bundled.bundlePath}. If automation fails, you can drag this file into ChatGPT manually.`,
+      ),
+    );
+  }
   const automationLogger: BrowserLogger = ((message?: string) => {
     if (typeof message === 'string') {
       log(message);

@@ -9,7 +9,7 @@ import {
   extractResponseMetadata,
   asOracleUserError,
   extractTextOutput,
-} from '../oracle.js';
+  } from '../oracle.js';
 import { runBrowserSessionExecution } from '../browser/sessionRunner.js';
 import { formatResponseMetadata, formatTransportMetadata } from './sessionDisplay.js';
 import { markErrorLogged } from './errorUtils.js';
@@ -56,6 +56,11 @@ export async function performSessionRun({
     if (mode === 'browser') {
       if (runOptions.model.startsWith('gemini')) {
         throw new Error('Gemini models are not available in browser mode. Re-run with --engine api.');
+      }
+      if (process.platform === 'win32') {
+        throw new Error(
+          'Browser engine is not supported on Windows yet. Use --engine api instead, or run on macOS/Linux.',
+        );
       }
       if (!browserConfig) {
         throw new Error('Missing browser configuration for session.');
@@ -157,6 +162,12 @@ export async function performSessionRun({
           }
         : undefined,
     });
+    if (mode === 'browser') {
+      log(dim('Browser fallback:')); // guides users when automation breaks
+      log(dim('- Use --engine api to run the same prompt without Chrome.'));
+      log(dim('- Add --browser-bundle-files to bundle attachments into a single text file you can drag into ChatGPT.'));
+      log(dim('- If cookies are the issue, rerun with --browser-inline-cookies[(-file)] or --browser-no-cookie-sync.'));
+    }
     throw error;
   }
 }
