@@ -12,6 +12,7 @@ import {
 } from '../oracle.js';
 import { assembleBrowserPrompt, type BrowserPromptArtifacts } from '../browser/prompt.js';
 import type { BrowserAttachment } from '../browser/types.js';
+import type { BrowserSessionConfig } from '../sessionManager.js';
 import { buildTokenEstimateSuffix, formatAttachmentLabel } from '../browser/promptSummary.js';
 
 interface DryRunDeps {
@@ -26,17 +27,19 @@ export async function runDryRunSummary(
     cwd,
     version,
     log,
+    browserConfig,
   }: {
     engine: 'api' | 'browser';
     runOptions: RunOracleOptions;
     cwd: string;
     version: string;
     log: (message: string) => void;
+    browserConfig?: BrowserSessionConfig;
   },
   deps: DryRunDeps = {},
 ): Promise<void> {
   if (engine === 'browser') {
-    await runBrowserDryRun({ runOptions, cwd, version, log }, deps);
+    await runBrowserDryRun({ runOptions, cwd, version, log, browserConfig }, deps);
     return;
   }
   await runApiDryRun({ runOptions, cwd, version, log }, deps);
@@ -90,11 +93,13 @@ async function runBrowserDryRun(
     cwd,
     version,
     log,
+    browserConfig,
   }: {
     runOptions: RunOracleOptions;
     cwd: string;
     version: string;
     log: (message: string) => void;
+    browserConfig?: BrowserSessionConfig;
   },
   deps: DryRunDeps,
 ): Promise<void> {
@@ -103,7 +108,27 @@ async function runBrowserDryRun(
   const suffix = buildTokenEstimateSuffix(artifacts);
   const headerLine = `[dry-run] Oracle (${version}) would launch browser mode (${runOptions.model}) with ~${artifacts.estimatedInputTokens.toLocaleString()} tokens${suffix}.`;
   log(chalk.cyan(headerLine));
+  logBrowserCookieStrategy(browserConfig, log, 'dry-run');
   logBrowserFileSummary(artifacts, log, 'dry-run');
+}
+
+function logBrowserCookieStrategy(
+  browserConfig: BrowserSessionConfig | undefined,
+  log: (message: string) => void,
+  label: string,
+) {
+  if (!browserConfig) return;
+  if (browserConfig.inlineCookies && browserConfig.inlineCookies.length > 0) {
+    const source = browserConfig.inlineCookiesSource ?? 'inline';
+    log(chalk.bold(`[${label}] Cookies: inline payload (${browserConfig.inlineCookies.length}) via ${source}.`));
+    return;
+  }
+  if (browserConfig.cookieSync === false) {
+    log(chalk.bold(`[${label}] Cookies: sync disabled (--browser-no-cookie-sync).`));
+    return;
+  }
+  const allowlist = browserConfig.cookieNames?.length ? browserConfig.cookieNames.join(', ') : 'all from Chrome profile';
+  log(chalk.bold(`[${label}] Cookies: copy from Chrome (${allowlist}).`));
 }
 
 function logBrowserFileSummary(artifacts: BrowserPromptArtifacts, log: (message: string) => void, label: string) {

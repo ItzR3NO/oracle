@@ -439,7 +439,7 @@ async function askOracleFlow(version: string, userConfig: UserConfig): Promise<v
 
   const browserConfig: BrowserSessionConfig | undefined =
     mode === 'browser'
-      ? buildBrowserConfig({
+      ? await buildBrowserConfig({
           browserChromeProfile: answers.chromeProfile,
           browserHeadless: answers.headless,
           browserHideWindow: answers.hideWindow,

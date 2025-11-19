@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { buildBrowserConfig, resolveBrowserModelLabel } from '../../src/cli/browserConfig.ts';
+import { buildBrowserConfig, resolveBrowserModelLabel } from '../../src/cli/browserConfig.js';
 
 describe('buildBrowserConfig', () => {
-  test('uses defaults when optional flags omitted', () => {
-    const config = buildBrowserConfig({ model: 'gpt-5-pro' });
+  test('uses defaults when optional flags omitted', async () => {
+    const config = await buildBrowserConfig({ model: 'gpt-5-pro' });
     expect(config).toMatchObject({
       chromeProfile: 'Default',
       chromePath: null,
@@ -20,8 +20,8 @@ describe('buildBrowserConfig', () => {
     });
   });
 
-  test('honors overrides and converts durations + booleans', () => {
-    const config = buildBrowserConfig({
+  test('honors overrides and converts durations + booleans', async () => {
+    const config = await buildBrowserConfig({
       model: 'gpt-5.1',
       browserChromeProfile: 'Profile 2',
       browserChromePath: '/Applications/Chrome.app',
@@ -51,31 +51,31 @@ describe('buildBrowserConfig', () => {
     });
   });
 
-  test('prefers explicit browser model label when provided', () => {
-    const config = buildBrowserConfig({
+  test('prefers explicit browser model label when provided', async () => {
+    const config = await buildBrowserConfig({
       model: 'gpt-5-pro',
       browserModelLabel: 'Instant',
     });
     expect(config.desiredModel).toBe('Instant');
   });
 
-  test('falls back to canonical label when override matches base model', () => {
-    const config = buildBrowserConfig({
+  test('falls back to canonical label when override matches base model', async () => {
+    const config = await buildBrowserConfig({
       model: 'gpt-5.1',
       browserModelLabel: 'gpt-5.1',
     });
     expect(config.desiredModel).toBe('GPT-5.1');
   });
 
-  test('maps thinking Gemini model to thinking label', () => {
-    const config = buildBrowserConfig({
+  test('maps thinking Gemini model to thinking label', async () => {
+    const config = await buildBrowserConfig({
       model: 'gemini-3-pro',
     });
     expect(config.desiredModel).toBe('Gemini 3 Pro');
   });
 
-  test('trims whitespace around override labels', () => {
-    const config = buildBrowserConfig({
+  test('trims whitespace around override labels', async () => {
+    const config = await buildBrowserConfig({
       model: 'gpt-5.1',
       browserModelLabel: '  ChatGPT 5.1 Instant  ',
     });

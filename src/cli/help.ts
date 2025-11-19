@@ -66,6 +66,7 @@ function renderHelpBanner(version: string, colors: HelpColors): string {
 
 function renderHelpFooter(program: Command, colors: HelpColors): string {
   const tips = [
+    `${colors.bullet('•')} Oracle cannot see your project unless you pass ${colors.accent('--file …')} — attach the files/dirs you want it to read.`,
     `${colors.bullet('•')} Attach lots of source (whole directories beat single files) and keep total input under ~196k tokens.`,
     `${colors.bullet('•')} Oracle starts empty—open with a short project briefing (stack, services, build steps), spell out the question and prior attempts, and why it matters; the more explanation and context you provide, the better the response will be.`,
     `${colors.bullet('•')} Best results: 6–30 sentences plus key source files; very short prompts often yield generic answers.`,

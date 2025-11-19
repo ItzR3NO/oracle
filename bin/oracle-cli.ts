@@ -85,6 +85,7 @@ interface CliOptions extends OptionValues {
   browserTimeout?: string;
   browserInputTimeout?: string;
   browserNoCookieSync?: boolean;
+  browserInlineCookiesFile?: string;
   browserCookieNames?: string;
   browserInlineCookies?: string;
   browserHeadless?: boolean;
@@ -245,6 +246,9 @@ program
   .addOption(new Option('--browser-cookie-names <names>', 'Comma-separated cookie allowlist for sync.').hideHelp())
   .addOption(
     new Option('--browser-inline-cookies <jsonOrBase64>', 'Inline cookies payload (JSON array or base64-encoded JSON).').hideHelp(),
+  )
+  .addOption(
+    new Option('--browser-inline-cookies-file <path>', 'Load inline cookies from file (JSON or base64 JSON).').hideHelp(),
   )
   .addOption(new Option('--browser-no-cookie-sync', 'Skip copying cookies from Chrome.').hideHelp())
   .addOption(new Option('--browser-headless', 'Launch Chrome in headless mode.').hideHelp())
@@ -626,25 +630,6 @@ async function runRootCommand(options: CliOptions): Promise<void> {
   }
   resolvedOptions.prompt = options.prompt;
 
-  if (options.dryRun) {
-    const baseRunOptions = buildRunOptions(resolvedOptions, {
-      preview: false,
-      previewMode: undefined,
-      baseUrl: resolvedBaseUrl,
-    });
-    await runDryRunSummary(
-      {
-        engine,
-        runOptions: baseRunOptions,
-        cwd: process.cwd(),
-        version: VERSION,
-        log: console.log,
-      },
-      {},
-    );
-    return;
-  }
-
   if (options.file && options.file.length > 0) {
     await readFiles(options.file, { cwd: process.cwd() });
   }
@@ -663,12 +648,32 @@ async function runRootCommand(options: CliOptions): Promise<void> {
     sessionMode === 'browser' ? resolveBrowserModelLabel(cliModelArg, resolvedModel) : undefined;
   const browserConfig =
     sessionMode === 'browser'
-      ? buildBrowserConfig({
+      ? await buildBrowserConfig({
           ...options,
           model: resolvedModel,
           browserModelLabel: browserModelLabelOverride,
         })
       : undefined;
+
+  if (options.dryRun) {
+    const baseRunOptions = buildRunOptions(resolvedOptions, {
+      preview: false,
+      previewMode: undefined,
+      baseUrl: resolvedBaseUrl,
+    });
+    await runDryRunSummary(
+      {
+        engine,
+        runOptions: baseRunOptions,
+        cwd: process.cwd(),
+        version: VERSION,
+        log: console.log,
+        browserConfig,
+      },
+      {},
+    );
+    return;
+  }
 
   await ensureSessionStorage();
   const baseRunOptions = buildRunOptions(resolvedOptions, {

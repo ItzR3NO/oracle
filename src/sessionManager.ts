@@ -17,6 +17,7 @@ export interface BrowserSessionConfig {
   cookieSync?: boolean;
   cookieNames?: string[] | null;
   inlineCookies?: CookieParam[] | null;
+  inlineCookiesSource?: string | null;
   headless?: boolean;
   keepBrowser?: boolean;
   hideWindow?: boolean;

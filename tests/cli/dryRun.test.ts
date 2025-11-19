@@ -37,6 +37,23 @@ describe('runDryRunSummary', () => {
         cwd: '/repo',
         version: '2.0.0',
         log,
+        browserConfig: {
+          cookieSync: true,
+          cookieNames: ['__Secure-next-auth.session-token'],
+          inlineCookies: null,
+          inlineCookiesSource: null,
+          chromeProfile: 'Default',
+          chromePath: null,
+          url: 'https://chatgpt.com/',
+          timeoutMs: 900_000,
+          inputTimeoutMs: 30_000,
+          headless: false,
+          keepBrowser: false,
+          hideWindow: false,
+          desiredModel: null,
+          debug: false,
+          allowCookieErrors: false,
+        },
       },
       {
         assembleBrowserPromptImpl: async () => ({
@@ -53,5 +70,50 @@ describe('runDryRunSummary', () => {
     expect(header?.[0]).toContain('browser mode');
     expect(log.mock.calls.some(([entry]) => String(entry).includes('Attachments to upload'))).toBe(true);
     expect(log.mock.calls.some(([entry]) => String(entry).includes('report.txt'))).toBe(true);
+    expect(log.mock.calls.some(([entry]) => String(entry).includes('Cookies: copy from Chrome'))).toBe(true);
+  });
+
+  test('logs inline cookie strategy', async () => {
+    const log = vi.fn();
+    await runDryRunSummary(
+      {
+        engine: 'browser',
+        runOptions: { ...baseRunOptions, model: 'gpt-5.1' },
+        cwd: '/repo',
+        version: '3.0.0',
+        log,
+        browserConfig: {
+          cookieSync: true,
+          cookieNames: null,
+          inlineCookies: [
+            { name: '__Secure-next-auth.session-token', value: 'token', domain: 'chatgpt.com' },
+            { name: '_account', value: 'personal', domain: 'chatgpt.com' },
+          ],
+          inlineCookiesSource: 'inline-file',
+          chromeProfile: 'Default',
+          chromePath: null,
+          url: 'https://chatgpt.com/',
+          timeoutMs: 900_000,
+          inputTimeoutMs: 30_000,
+          headless: false,
+          keepBrowser: false,
+          hideWindow: false,
+          desiredModel: null,
+          debug: false,
+          allowCookieErrors: false,
+        },
+      },
+      {
+        assembleBrowserPromptImpl: async () => ({
+          markdown: 'bundle',
+          composerText: 'prompt',
+          estimatedInputTokens: 10,
+          attachments: [],
+          inlineFileCount: 0,
+          tokenEstimateIncludesInlineFiles: false,
+        }),
+      },
+    );
+    expect(log.mock.calls.some(([entry]) => String(entry).includes('Cookies: inline payload'))).toBe(true);
   });
 });

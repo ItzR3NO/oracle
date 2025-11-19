@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - **Gemini 3 Pro Support**: Use Google's latest model via `oracle --model gemini`. Requires `GEMINI_API_KEY`.
 - Configurable API timeout: `--timeout <seconds|auto>` (default auto = 20m for gpt-5-pro, 30s for other models). Enforced for streaming and background runs.
 - Help text tip: best results come from 6–30 sentences plus key source files; very short prompts tend to be generic.
+- Browser inline cookies: `--browser-inline-cookies[(-file)]` (or env) accepts JSON/base64 payloads, auto-loads `~/.oracle/cookies.{json,base64}`, and dry-run now reports whether cookies come from Chrome or inline sources.
 - Inline runs now print a single completion line (removed duplicate “Finished” summary), keeping output concise.
 - Gemini runs stay on API (no browser detours), and the CLI logs the resolved model id alongside masked keys when it differs.
 - `--dry-run [summary|json|full]` is now the single preview flag; `--preview` remains as a hidden alias for compatibility.

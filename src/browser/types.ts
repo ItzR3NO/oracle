@@ -44,6 +44,7 @@ export interface BrowserAutomationConfig {
   cookieSync?: boolean;
   cookieNames?: string[] | null;
   inlineCookies?: CookieParam[] | null;
+  inlineCookiesSource?: string | null;
   headless?: boolean;
   keepBrowser?: boolean;
   hideWindow?: boolean;
@@ -79,4 +80,5 @@ export type ResolvedBrowserConfig = Required<
   chromeProfile?: string | null;
   chromePath?: string | null;
   desiredModel?: string | null;
+  inlineCookiesSource?: string | null;
 };

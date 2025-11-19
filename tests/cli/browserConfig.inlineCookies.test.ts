@@ -1,0 +1,56 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, expect, test, beforeEach, afterEach } from 'vitest';
+import { buildBrowserConfig } from '../../src/cli/browserConfig.js';
+
+const model = 'gpt-5.1' as const;
+
+describe('buildBrowserConfig inline cookies', () => {
+  let originalEnvHome: string | undefined;
+
+  beforeEach(() => {
+    originalEnvHome = process.env.HOME;
+  });
+
+  afterEach(() => {
+    if (originalEnvHome !== undefined) {
+      process.env.HOME = originalEnvHome;
+    }
+    delete process.env.ORACLE_BROWSER_COOKIES_JSON;
+    delete process.env.ORACLE_BROWSER_COOKIES_FILE;
+  });
+
+  test('loads inline cookies from explicit file flag', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'oracle-inline-'));
+    const file = path.join(tmp, 'cookies.json');
+    await fs.writeFile(
+      file,
+      JSON.stringify([{ name: '__Secure-next-auth.session-token', value: 'abc', domain: 'chatgpt.com' }]),
+    );
+    const config = await buildBrowserConfig({ browserInlineCookiesFile: file, model });
+    expect(config.inlineCookies?.[0]?.name).toBe('__Secure-next-auth.session-token');
+    expect(config.inlineCookiesSource).toBe('inline-file');
+  });
+
+  test('treats inline payload value as file path when it exists', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'oracle-inline-arg-'));
+    const file = path.join(tmp, 'cookies.json');
+    await fs.writeFile(file, JSON.stringify([{ name: '_account', value: 'personal', domain: 'chatgpt.com' }]));
+    const config = await buildBrowserConfig({ browserInlineCookies: file, model });
+    expect(config.inlineCookies?.[0]?.name).toBe('_account');
+    expect(config.inlineCookiesSource).toBe('inline-arg');
+  });
+
+  test('falls back to ~/.oracle/cookies.json when no inline args provided', async () => {
+    const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'oracle-home-'));
+    process.env.HOME = fakeHome;
+    const oracleDir = path.join(fakeHome, '.oracle');
+    await fs.mkdir(oracleDir, { recursive: true });
+    const homeFile = path.join(oracleDir, 'cookies.json');
+    await fs.writeFile(homeFile, JSON.stringify([{ name: 'cf_clearance', value: 'token', domain: 'chatgpt.com' }]));
+    const config = await buildBrowserConfig({ model });
+    expect(config.inlineCookies?.[0]?.name).toBe('cf_clearance');
+    expect(config.inlineCookiesSource).toBe('home:cookies.json');
+  });
+});

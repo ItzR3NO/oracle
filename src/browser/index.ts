@@ -91,10 +91,10 @@ export async function runBrowserMode(options: BrowserRunOptions): Promise<Browse
     if (config.cookieSync) {
       if (!config.inlineCookies) {
         logger(
-          'Heads-up: macOS may prompt for your Keychain password to read Chrome cookies; approve it to stay signed in or rerun with --browser-no-cookie-sync / --browser-allow-cookie-errors.',
+          'Heads-up: macOS may prompt for your Keychain password to read Chrome cookies; approve it to stay signed in or rerun with --browser-no-cookie-sync / --browser-allow-cookie-errors / --browser-inline-cookies[(-file)]. Inline cookies skip Chrome + Keychain entirely.',
         );
       } else {
-        logger('Applying inline cookies (skipping Chrome profile read)');
+        logger('Applying inline cookies (skipping Chrome profile read and Keychain prompt)');
       }
       const cookieCount = await syncCookies(Network, config.url, config.chromeProfile, logger, {
         allowErrors: config.allowCookieErrors ?? false,
