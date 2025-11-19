@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.3.1 — Unreleased
+
+### Changed
+- Reject prompts shorter than 20 characters with a friendly hint (prevents accidental single-character runs). Override via ORACLE_MIN_PROMPT_CHARS for automated environments.
+
 ## 1.3.0 — 2025-11-19
 
 ### Added
