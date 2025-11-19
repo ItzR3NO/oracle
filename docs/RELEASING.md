@@ -17,6 +17,7 @@
     - Verify tickets: `xcrun stapler validate vendor/oracle-notifier/OracleNotifier.app` and `spctl -a -t exec -vv vendor/oracle-notifier/OracleNotifier.app`.
 3. **Changelog & docs**
   - [ ] Update `CHANGELOG.md` (or release notes) with highlights.
+  - [ ] Keep changelog entries product-facing only; avoid adding release-status/meta lines (e.g., “Published to npm …”)—that belongs in the GitHub release body.
   - [ ] Verify changelog structure: versions strictly descending, no duplicates or skipped numbers, single heading per version.
   - [ ] Ensure README reflects current CLI options (globs, `--status`, heartbeat behavior).
 4. **Validation**
