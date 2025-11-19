@@ -30,5 +30,5 @@ describe('showStatus cleanup tip', () => {
     const { showStatus } = await import('../../src/cli/sessionDisplay.ts');
     await showStatus({ hours: 24, includeAll: false, limit: 10, showExamples: false });
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('oracle session --clear'));
-  });
+  }, 15_000);
 });

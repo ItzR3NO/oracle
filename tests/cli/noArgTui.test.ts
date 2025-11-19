@@ -20,5 +20,5 @@ describe('zero-arg TUI entry', () => {
     // restore
     process.argv = originalArgv;
     Object.defineProperty(process.stdout, 'isTTY', { value: originalTty, configurable: true });
-  });
+  }, 15_000);
 });

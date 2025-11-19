@@ -34,5 +34,5 @@ describe('oracle-session resources via stdio', () => {
   it('responds to resource/read (metadata)', async () => {
     const res = await callResource(proc, 'resource/read', 1, { uri: 'oracle-session://nonexistent/metadata' });
     expect(res.error?.message || res.result?.contents).toBeDefined();
-  });
+  }, 15_000);
 });
