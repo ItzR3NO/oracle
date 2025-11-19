@@ -136,6 +136,38 @@ Run these four smoke tests whenever we touch browser automation:
 
 Record session IDs and outcomes in the PR description (pass/fail, notable delays). This ensures reviewers can audit real runs.
 
+### Remote Chrome smoke test (CDP)
+
+Run this whenever you touch CDP connection logic (remote chrome lifecycle, attachment transfer) or before executing remote sessions in CI.
+
+1. Launch a throwaway Chrome instance with remote debugging enabled (adjust the path per OS):
+   ```bash
+   REMOTE_PROFILE=/tmp/oracle-remote-test-profile
+   rm -rf "$REMOTE_PROFILE"
+   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+     --headless=new \
+     --disable-gpu \
+     --remote-debugging-port=9333 \
+     --remote-allow-origins=* \
+     --user-data-dir="$REMOTE_PROFILE" \
+     >/tmp/oracle-remote-chrome.log 2>&1 &
+   export REMOTE_CHROME_PID=$!
+   sleep 3
+   ```
+2. Run the helper to verify CDP connectivity:
+   ```bash
+   pnpm tsx scripts/test-remote-chrome.ts localhost 9333
+   ```
+   Expect ✓ logs for connection, protocol info, navigation to https://chatgpt.com/, and the final “POC successful!” line.
+3. Tear down the temporary browser:
+   ```bash
+   kill "$REMOTE_CHROME_PID"
+   rm -rf "$REMOTE_PROFILE"
+   ```
+   Use `pkill -f oracle-remote-test-profile` if Chrome refuses to exit cleanly.
+
+Capture the pass/fail result (include the helper’s log snippet) in your PR description alongside other manual browser tests.
+
 ## Chrome DevTools / MCP Debugging
 
 Use this when you need to inspect the live ChatGPT composer (DOM state, markdown text, screenshots, etc.). For smaller ad‑hoc pokes, you can often rely on `pnpm tsx scripts/browser-tools.ts …` instead.
