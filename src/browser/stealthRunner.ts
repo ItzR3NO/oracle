@@ -240,18 +240,33 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
   const sendButton = await page.$(SEND_BUTTON_SELECTOR);
   
   if (sendButton) {
-    const isDisabled = await sendButton.isDisabled();
+    // Check if button is actually enabled
+    let isDisabled = await sendButton.isDisabled();
+    
+    if (isDisabled && currentVal && currentVal.trim().length > 0) {
+        logger('Send button is disabled despite text presence. Triggering manual input events...');
+        // Try to wake up the UI
+        try {
+            await promptHandle.focus();
+            await page.keyboard.press('Space');
+            await page.waitForTimeout(100);
+            await page.keyboard.press('Backspace');
+            await page.waitForTimeout(500);
+            isDisabled = await sendButton.isDisabled();
+        } catch (e) {
+            logger(`Wake-up sequence failed: ${e}`);
+        }
+    }
+
     if (!isDisabled) {
+      logger('Clicking Send button...');
       await sendButton.click();
     } else {
-        // If button is disabled, maybe we need to trigger another input event
-        logger('Send button disabled, re-triggering input events...');
-        await promptHandle.press('Space');
-        await promptHandle.press('Backspace');
-        await page.waitForTimeout(500);
-        await sendButton.click();
+        logger('Send button still disabled. Attempting fallback Enter key...');
+        await page.keyboard.press('Enter');
     }
   } else {
+    logger('Send button not found. Using Enter key...');
     await page.keyboard.press('Enter');
   }
 
