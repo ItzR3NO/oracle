@@ -109,128 +109,67 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
     await selectModel(page, config.desiredModel, logger);
   }
 
-  // Grant clipboard permissions for the paste fallback
-  try {
-    await browserContext.grantPermissions(['clipboard-read', 'clipboard-write']);
-  } catch {
-    // ignore if not supported
-  }
-
   // 4. Wait for Prompt and Fill
-  const promptHandle = await waitForPrompt(page, config.inputTimeoutMs ?? 60_000, logger);
+  const promptSelector = '#prompt-textarea';
+  logger(`Waiting for ${promptSelector}...`);
   
-  // Focus
-  logger('Focusing prompt...');
   try {
-    await promptHandle.click();
-    await page.waitForTimeout(500);
+    await page.waitForSelector(promptSelector, { state: 'visible', timeout: config.inputTimeoutMs ?? 60_000 });
   } catch (e) {
-    logger(`Focus click failed: ${e}`);
+    // Fallback to general wait if specific ID fails (unlikely but safe)
+    logger('Specific selector failed, trying generic wait...');
+    await waitForPrompt(page, config.inputTimeoutMs ?? 60_000, logger);
   }
 
-  // Debug what we found
-  try {
-      const debugInfo = await promptHandle.evaluate((el: HTMLElement) => ({
-          tagName: el.tagName,
-          id: el.id,
-          className: el.className,
-          isContentEditable: el.isContentEditable
-      }));
-      logger(`Prompt element found: ${JSON.stringify(debugInfo)}`);
-  } catch {}
+  const promptHandle = await page.$(promptSelector) ?? await page.$(INPUT_SELECTORS.join(','));
+  if (!promptHandle) throw new Error('Prompt handle not found');
 
-  logger('Attempting to fill prompt...');
+  // Ensure visible and focused
+  await promptHandle.scrollIntoViewIfNeeded();
   
-  // Strategy 1: Human-like Typing
+  // Click center to force focus
+  const box = await promptHandle.boundingBox();
+  if (box) {
+      logger(`Clicking prompt at ${box.x + box.width/2}, ${box.y + box.height/2}`);
+      await page.mouse.click(box.x + box.width/2, box.y + box.height/2);
+  } else {
+      await promptHandle.click();
+  }
+
+  await page.waitForTimeout(1000); // Give UI time to react to focus
+
+  logger('Typing prompt (slow)...');
   try {
-      await page.keyboard.type(promptText, { delay: 10 }); 
+      await page.keyboard.type(promptText, { delay: 50 }); 
   } catch (e) {
-      logger(`Strategy 1 (Typing) failed: ${e}`);
+      logger(`Typing failed: ${e}`);
   }
   
-  // Verification 1
-  await page.waitForTimeout(200);
+  // Verification
+  await page.waitForTimeout(500);
   let currentVal = await promptHandle.evaluate((el: any) => el.value || el.innerText);
-  
-  // Strategy 2: execCommand (Best for ContentEditable)
-  if ((!currentVal || currentVal.trim().length === 0)) {
+
+  if (!currentVal || currentVal.trim().length === 0) {
+      logger('Typing failed. Trying Clipboard Paste...');
       try {
-        const isEditable = await promptHandle.evaluate((el: HTMLElement) => el.isContentEditable);
-        if (isEditable) {
-            logger('Strategy 1 failed. Trying Strategy 2: execCommand(insertText)...');
-            await page.evaluate((text: string) => {
-                document.execCommand('insertText', false, text);
-            }, promptText);
-        }
+        await page.evaluate((text: string) => navigator.clipboard.writeText(text), promptText);
+        const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+        await page.keyboard.press(`${modifier}+V`);
       } catch (e) {
-          logger(`Strategy 2 (execCommand) failed: ${e}`);
+          logger(`Paste failed: ${e}`);
       }
   }
 
-  // Verification 2
-  currentVal = await promptHandle.evaluate((el: any) => el.value || el.innerText);
-
-  // Strategy 3: Clipboard Paste (if empty)
-  if (!currentVal || currentVal.trim().length === 0) {
-    logger('Strategy 2 failed. Trying Strategy 3: Clipboard Paste...');
-    try {
-        // Write to clipboard (requires permission)
-        await page.evaluate((text: string) => navigator.clipboard.writeText(text), promptText);
-        // Paste
-        const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-        await page.keyboard.press(`${modifier}+V`);
-        await page.waitForTimeout(500);
-    } catch (e) {
-         logger(`Strategy 3 (Paste) failed: ${e}`);
-    }
-  }
-
-  // Verification 3
-  currentVal = await promptHandle.evaluate((el: any) => el.value || el.innerText);
-
-  // Strategy 4: Forceful JS Injection (if still empty)
-  if (!currentVal || currentVal.trim().length === 0) {
-    logger('Strategy 3 failed. Trying Strategy 4: Direct JS Injection...');
-    
-    await page.evaluate(({ selectors, text }) => {
-        const el = selectors
-            .map((s: string) => document.querySelector(s))
-            .find((e: any) => e && e.offsetParent !== null) as any;
-
-        if (!el) return;
-
-        el.focus();
-        
-        if (el.isContentEditable) {
-            // ProseMirror specific structure
-            el.innerHTML = `<p>${text}</p>`;
-        } else {
-            el.value = text;
-        }
-        
-        // Dispatch events to trigger framework state updates
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        
-        // Simulate a text input event for good measure
-        if (el.isContentEditable) {
-             const inputEvent = new InputEvent('input', {
-                bubbles: true,
-                cancelable: false,
-                inputType: 'insertText',
-                data: text,
-            });
-            el.dispatchEvent(inputEvent);
-        }
-    }, { selectors: INPUT_SELECTORS, text: promptText });
-  }
-  
   // Final Verification
   currentVal = await promptHandle.evaluate((el: any) => el.value || el.innerText);
   if (!currentVal || currentVal.trim().length === 0) {
-       logger('CRITICAL: All prompt injection strategies failed. Sending empty/partial prompt might occur.');
-  } else {
-      logger('Prompt successfully verified in field.');
+      logger('Standard methods failed. Using Direct Value Injection.');
+      await page.$eval(promptSelector, (el: any, text: string) => {
+          el.value = text;
+          el.innerText = text;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, promptText);
   }
 
   // Final wait to ensure UI updates
