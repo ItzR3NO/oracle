@@ -22,6 +22,9 @@ export const DEFAULT_BROWSER_CONFIG: ResolvedBrowserConfig = {
 };
 
 export function resolveBrowserConfig(config: BrowserAutomationConfig | undefined): ResolvedBrowserConfig {
+  const envAllowCookieErrors =
+    (process.env.ORACLE_BROWSER_ALLOW_COOKIE_ERRORS ?? '').trim().toLowerCase() === 'true' ||
+    (process.env.ORACLE_BROWSER_ALLOW_COOKIE_ERRORS ?? '').trim() === '1';
   return {
     ...DEFAULT_BROWSER_CONFIG,
     ...(config ?? {}),
@@ -40,6 +43,6 @@ export function resolveBrowserConfig(config: BrowserAutomationConfig | undefined
     chromePath: config?.chromePath ?? DEFAULT_BROWSER_CONFIG.chromePath,
     chromeCookiePath: config?.chromeCookiePath ?? DEFAULT_BROWSER_CONFIG.chromeCookiePath,
     debug: config?.debug ?? DEFAULT_BROWSER_CONFIG.debug,
-    allowCookieErrors: config?.allowCookieErrors ?? DEFAULT_BROWSER_CONFIG.allowCookieErrors,
+    allowCookieErrors: config?.allowCookieErrors ?? envAllowCookieErrors ?? DEFAULT_BROWSER_CONFIG.allowCookieErrors,
   };
 }

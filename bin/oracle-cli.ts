@@ -572,6 +572,9 @@ async function runRootCommand(options: CliOptions): Promise<void> {
   const remoteToken = options.remoteToken ?? process.env.ORACLE_REMOTE_TOKEN;
   const remoteCookieSource =
     normalizeRemoteCookieSource(options.remoteCookieSource ?? process.env.ORACLE_REMOTE_COOKIE_SOURCE) ?? 'none';
+  if (remoteHost) {
+    console.log(chalk.dim(`Remote browser host detected: ${remoteHost} (cookie source: ${remoteCookieSource})`));
+  }
 
   if (userCliArgs.length === 0) {
     if (tuiEnabled()) {
