@@ -116,7 +116,6 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
   try {
     await page.waitForSelector(promptSelector, { state: 'visible', timeout: config.inputTimeoutMs ?? 60_000 });
   } catch (e) {
-    // Fallback to general wait if specific ID fails (unlikely but safe)
     logger('Specific selector failed, trying generic wait...');
     await waitForPrompt(page, config.inputTimeoutMs ?? 60_000, logger);
   }
@@ -130,40 +129,40 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
   // Click center to force focus
   const box = await promptHandle.boundingBox();
   if (box) {
-      logger(`Clicking prompt at ${box.x + box.width/2}, ${box.y + box.height/2}`);
       await page.mouse.click(box.x + box.width/2, box.y + box.height/2);
   } else {
       await promptHandle.click();
   }
+  await page.waitForTimeout(300); // Brief pause for focus
 
-  await page.waitForTimeout(1000); // Give UI time to react to focus
-
-  logger('Typing prompt (slow)...');
+  // Strategy 1: Clipboard Paste (FAST)
+  logger('Pasting prompt...');
   try {
-      await page.keyboard.type(promptText, { delay: 50 }); 
+    await page.evaluate((text: string) => navigator.clipboard.writeText(text), promptText);
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modifier}+V`);
+    await page.waitForTimeout(200);
   } catch (e) {
-      logger(`Typing failed: ${e}`);
+     logger(`Paste failed: ${e}`);
   }
-  
+
   // Verification
-  await page.waitForTimeout(500);
   let currentVal = await promptHandle.evaluate((el: any) => el.value || el.innerText);
 
+  // Strategy 2: Fast Typing (Fallback)
   if (!currentVal || currentVal.trim().length === 0) {
-      logger('Typing failed. Trying Clipboard Paste...');
+      logger('Paste failed/empty. Typing prompt (fast)...');
       try {
-        await page.evaluate((text: string) => navigator.clipboard.writeText(text), promptText);
-        const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-        await page.keyboard.press(`${modifier}+V`);
+          await page.keyboard.type(promptText, { delay: 5 }); 
       } catch (e) {
-          logger(`Paste failed: ${e}`);
+          logger(`Typing failed: ${e}`);
       }
   }
-
-  // Final Verification
+  
+  // Strategy 3: Direct Injection (Final Resort)
   currentVal = await promptHandle.evaluate((el: any) => el.value || el.innerText);
   if (!currentVal || currentVal.trim().length === 0) {
-      logger('Standard methods failed. Using Direct Value Injection.');
+      logger('Fallback: Direct Value Injection.');
       await page.$eval(promptSelector, (el: any, text: string) => {
           el.value = text;
           el.innerText = text;
@@ -173,7 +172,7 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
   }
 
   // Final wait to ensure UI updates
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(300);
 
   const existingAssistantCount = await countAssistantMessages(page);
   const sendButton = await page.$(SEND_BUTTON_SELECTOR);
