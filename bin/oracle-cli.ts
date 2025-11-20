@@ -51,6 +51,7 @@ import {
   type NotificationSettings,
 } from '../src/cli/notifier.js';
 import { loadUserConfig, type UserConfig } from '../src/config.js';
+import { shouldBlockDuplicatePrompt } from '../src/cli/duplicatePromptGuard.js';
 
 interface CliOptions extends OptionValues {
   prompt?: string;
@@ -806,21 +807,15 @@ async function runRootCommand(options: CliOptions): Promise<void> {
   }
   resolvedOptions.prompt = options.prompt;
 
-  const normalizedIncomingPrompt = resolvedOptions.prompt?.trim() ?? '';
-  if (!options.force && normalizedIncomingPrompt.length > 0) {
-    const running = (await sessionStore.listSessions()).filter((entry) => entry.status === 'running');
-    const duplicate = running.find(
-      (entry) => (entry.options?.prompt?.trim?.() ?? '') === normalizedIncomingPrompt,
-    );
-    if (duplicate) {
-      console.log(
-        chalk.yellow(
-          `A session with the same prompt is already running (${duplicate.id}). Reattach with "oracle session ${duplicate.id}" or rerun with --force to start another run.`,
-        ),
-      );
-      process.exitCode = 1;
-      return;
-    }
+  const duplicateBlocked = await shouldBlockDuplicatePrompt({
+    prompt: resolvedOptions.prompt,
+    force: options.force,
+    sessionStore,
+    log: console.log,
+  });
+  if (duplicateBlocked) {
+    process.exitCode = 1;
+    return;
   }
 
   if (options.file && options.file.length > 0) {
