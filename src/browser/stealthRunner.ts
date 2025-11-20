@@ -335,6 +335,9 @@ async function waitForAnswer(
         return !!lastTurn.querySelector('button[data-testid="copy-turn-action-button"]');
     });
 
+    // Check for specific "Thinking" indicators typical of Pro/Reasoning models
+    const isThinking = /Thinking|Reasoning|Answer now/i.test(currentText);
+
     if (currentText.length > lastText.length) {
       const newContent = currentText.slice(lastText.length);
       if (logger && newContent.trim()) {
@@ -351,18 +354,21 @@ async function waitForAnswer(
         emptyLoops++;
       }
     }
+    
+    if (isThinking && stableCount % 10 === 0 && stableCount > 0) {
+        logger?.('(Model is thinking...)');
+    }
 
     // Exit Conditions
     
     // 1. Explicit "Copy" button on the NEW turn means generation is finished.
-    // We also require at least some text to be present to avoid false positives on empty/loading states.
-    if (isDone && currentText.length > 0) {
+    if (isDone && currentText.length > 0 && !isThinking) {
         logger?.('Response complete (Copy button detected on last turn).');
         break;
     }
 
-    // 2. "Stop" button is gone AND text is stable for ~1s AND we have text.
-    if (!isGenerating && stableCount > 5 && currentText.length > 0) {
+    // 2. "Stop" button is gone AND text is stable for ~4s AND we have text AND not thinking.
+    if (!isGenerating && stableCount > 20 && currentText.length > 0 && !isThinking) {
         logger?.('Response complete (Stable text & no stop button).');
         break;
     }
