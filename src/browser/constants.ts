@@ -4,6 +4,7 @@ export const COOKIE_URLS = ['https://chatgpt.com', 'https://chat.openai.com'];
 
 export const INPUT_SELECTORS = [
   'textarea[data-id="prompt-textarea"]',
+  'textarea[data-testid="prompt-textarea"]',
   'textarea[placeholder*="Send a message"]',
   'textarea[aria-label="Message ChatGPT"]',
   'textarea:not([disabled])',
@@ -42,3 +43,11 @@ export const STOP_BUTTON_SELECTOR = '[data-testid="stop-button"]';
 export const SEND_BUTTON_SELECTOR = '[data-testid="send-button"]';
 export const MODEL_BUTTON_SELECTOR = '[data-testid="model-switcher-dropdown-button"]';
 export const COPY_BUTTON_SELECTOR = 'button[data-testid="copy-turn-action-button"]';
+
+export const OVERLAY_SELECTORS = [
+  'div[role="dialog"] button[aria-label="Close"]',
+  'div[role="dialog"] button.btn-neutral',
+  '[data-testid="onboarding-step-start"]',
+  '[data-testid="release-notes-dismiss"]',
+  '.fi-modal-close',
+];

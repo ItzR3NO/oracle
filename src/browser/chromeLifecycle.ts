@@ -7,8 +7,13 @@ import type { BrowserLogger, ResolvedBrowserConfig, ChromeClient } from './types
 
 const execFileAsync = promisify(execFile);
 
-export async function launchChrome(config: ResolvedBrowserConfig, userDataDir: string, logger: BrowserLogger) {
-  const chromeFlags = buildChromeFlags(config.headless);
+export async function launchChrome(
+  config: ResolvedBrowserConfig,
+  userDataDir: string,
+  profileDirectory: string | null,
+  logger: BrowserLogger,
+) {
+  const chromeFlags = buildChromeFlags(config.headless, profileDirectory);
   const launcher = await launch({
     chromePath: config.chromePath ?? undefined,
     chromeFlags,
@@ -23,6 +28,7 @@ export function registerTerminationHooks(
   chrome: LaunchedChrome,
   userDataDir: string,
   keepBrowser: boolean,
+  removeProfileDir: boolean,
   logger: BrowserLogger,
 ): () => void {
   const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
@@ -40,7 +46,7 @@ export function registerTerminationHooks(
       } catch {
         // ignore kill failures
       }
-      if (!keepBrowser) {
+      if (!keepBrowser && removeProfileDir) {
         await rm(userDataDir, { recursive: true, force: true }).catch(() => undefined);
       }
     })().finally(() => {
@@ -89,7 +95,7 @@ export async function connectToChrome(port: number, logger: BrowserLogger): Prom
   return client;
 }
 
-function buildChromeFlags(headless: boolean): string[] {
+function buildChromeFlags(headless: boolean, profileDirectory: string | null): string[] {
   const flags = [
     '--disable-background-networking',
     '--disable-background-timer-throttling',
@@ -107,12 +113,24 @@ function buildChromeFlags(headless: boolean): string[] {
     '--disable-features=TranslateUI,AutomationControlled',
     '--mute-audio',
     '--window-size=1280,720',
-    '--password-store=basic',
-    '--use-mock-keychain',
   ];
+
+  const isLinux = process.platform === 'linux';
+  const isRoot = typeof process.getuid === 'function' && process.getuid?.() === 0;
+
+  if (isLinux) {
+    flags.push('--disable-dev-shm-usage');
+    if (isRoot) {
+      flags.push('--no-sandbox', '--disable-setuid-sandbox');
+    }
+  }
 
   if (headless) {
     flags.push('--headless=new');
+  }
+
+  if (profileDirectory) {
+    flags.push(`--profile-directory=${profileDirectory}`);
   }
 
   return flags;
