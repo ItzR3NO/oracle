@@ -5,7 +5,7 @@ import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { chromium, firefox, type BrowserContext, type Browser } from 'playwright';
 import type { BrowserRunOptions, BrowserRunResult, BrowserLogger } from './types.js';
-import { DEFAULT_MODEL_TARGET, INPUT_SELECTORS, SEND_BUTTON_SELECTOR, ANSWER_SELECTORS, OVERLAY_SELECTORS } from './constants.js';
+import { DEFAULT_MODEL_TARGET, INPUT_SELECTORS, SEND_BUTTON_SELECTOR, ANSWER_SELECTORS, OVERLAY_SELECTORS, STOP_BUTTON_SELECTOR, COPY_BUTTON_SELECTOR } from './constants.js';
 import { estimateTokenCount } from './utils.js';
 
 export async function runStealth(options: BrowserRunOptions, logger: BrowserLogger): Promise<BrowserRunResult> {
@@ -15,15 +15,12 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
   }
 
   const config = options.config ?? {};
-  // If the user provides a profile path, we assume they want to use that specific profile.
-  // If not, we create a temp one.
   const tempProfile = config.chromeProfilePath ? null : await mkdtemp(path.join(os.tmpdir(), 'oracle-stealth-'));
   const userDataDir = config.chromeProfilePath ?? tempProfile ?? (await mkdtemp(path.join(os.tmpdir(), 'oracle-stealth-')));
   const headless = config.headless ?? false;
   const camoufoxPath = process.env.CAMOUFOX_PATH ?? '/home/r3no/Codex Projects/Scraper-Dataset-AiTrainer/api/.venv/bin/camoufox';
   const executablePath = config.chromePath ?? camoufoxPath;
 
-  // Explicit CDP URL overrides everything
   const remoteCdp = process.env.PLAYWRIGHT_CDP_URL;
   let browserContext: BrowserContext | null = null;
   let remoteAttached = false;
@@ -39,8 +36,6 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
     }
   }
 
-  // If no CDP connection, launch a persistent context.
-  // We prefer Playwright Chromium with a real profile if provided, or Camoufox if available and no specific profile key is set to force standard Chrome.
   if (!browserContext) {
     const useCamoufox = !config.chromePath && !config.chromeProfilePath && await canAccess(camoufoxPath);
     
@@ -67,7 +62,7 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
     if (!browserContext) {
       logger(`Launching Chromium with profile: ${userDataDir}`);
       browserContext = await chromium.launchPersistentContext(userDataDir, {
-        headless, // Respect the headless flag; user can set it to false for debugging
+        headless, 
         executablePath: config.chromePath ?? undefined,
         viewport: { width: 1280, height: 720 },
         args: [
@@ -80,8 +75,6 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
     }
   }
 
-  // Reuse an existing ChatGPT tab if present and not busy, else create a new one.
-  // Creating a new tab is often safer for avoiding stale state.
   let page = browserContext.pages().find((p) => (p.url() ?? '').includes('chatgpt.com')) ?? null;
   if (!page) {
     page = await browserContext.newPage();
@@ -90,7 +83,6 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
   try {
       await page.goto(config.url ?? 'https://chatgpt.com/', { waitUntil: 'domcontentloaded' });
   } catch (e) {
-      // Sometimes navigation fails if we are already there or network blips
       logger(`Navigation warning: ${e}`);
   }
 
@@ -98,18 +90,13 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
   });
 
-  // 1. Solve Cloudflare
   await solveCloudflare(page, logger, config.inputTimeoutMs ?? 90_000);
-
-  // 2. Dismiss Overlays (onboarding, etc.)
   await dismissOverlays(page, logger);
 
-  // 3. Select Model (Best Effort)
   if (config.desiredModel && config.desiredModel !== DEFAULT_MODEL_TARGET) {
     await selectModel(page, config.desiredModel, logger);
   }
 
-  // 4. Wait for Prompt and Fill
   const promptSelector = '#prompt-textarea';
   logger(`Waiting for ${promptSelector}...`);
   
@@ -123,19 +110,15 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
   const promptHandle = await page.$(promptSelector) ?? await page.$(INPUT_SELECTORS.join(','));
   if (!promptHandle) throw new Error('Prompt handle not found');
 
-  // Ensure visible and focused
   await promptHandle.scrollIntoViewIfNeeded();
-  
-  // Click center to force focus
   const box = await promptHandle.boundingBox();
   if (box) {
       await page.mouse.click(box.x + box.width/2, box.y + box.height/2);
   } else {
       await promptHandle.click();
   }
-  await page.waitForTimeout(300); // Brief pause for focus
+  await page.waitForTimeout(300);
 
-  // Strategy 1: Clipboard Paste (FAST)
   logger('Pasting prompt...');
   try {
     await page.evaluate((text: string) => navigator.clipboard.writeText(text), promptText);
@@ -146,10 +129,8 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
      logger(`Paste failed: ${e}`);
   }
 
-  // Verification
   let currentVal = await promptHandle.evaluate((el: any) => el.value || el.innerText);
 
-  // Strategy 2: Fast Typing (Fallback)
   if (!currentVal || currentVal.trim().length === 0) {
       logger('Paste failed/empty. Typing prompt (fast)...');
       try {
@@ -159,7 +140,6 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
       }
   }
   
-  // Strategy 3: Direct Injection (Final Resort)
   currentVal = await promptHandle.evaluate((el: any) => el.value || el.innerText);
   if (!currentVal || currentVal.trim().length === 0) {
       logger('Fallback: Direct Value Injection.');
@@ -171,19 +151,16 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
       }, promptText);
   }
 
-  // Final wait to ensure UI updates
   await page.waitForTimeout(300);
 
   const existingAssistantCount = await countAssistantMessages(page);
   const sendButton = await page.$(SEND_BUTTON_SELECTOR);
   
   if (sendButton) {
-    // Check if button is actually enabled
     let isDisabled = await sendButton.isDisabled();
     
     if (isDisabled && currentVal && currentVal.trim().length > 0) {
         logger('Send button is disabled despite text presence. Triggering manual input events...');
-        // Try to wake up the UI
         try {
             await promptHandle.focus();
             await page.keyboard.press('Space');
@@ -208,7 +185,7 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
     await page.keyboard.press('Enter');
   }
 
-  const answer = await waitForAnswer(page, config.timeoutMs ?? 900_000, existingAssistantCount);
+  const answer = await waitForAnswer(page, config.timeoutMs ?? 900_000, existingAssistantCount, logger);
 
   const durationMs = answer.elapsedMs;
   const tokens = estimateTokenCount(answer.text);
@@ -227,7 +204,7 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
     tookMs: durationMs,
     answerTokens: tokens,
     answerChars: answer.text.length,
-    chromePid: undefined, // Playwright manages this
+    chromePid: undefined,
     chromePort: undefined,
     userDataDir: userDataDir ?? undefined,
   };
@@ -241,7 +218,6 @@ async function solveCloudflare(page: any, logger: BrowserLogger, timeoutMs: numb
     const cf = await detectCloudflare(page);
     if (!cf.challenge) {
         consecutiveCleanChecks++;
-        // Ensure it stays clean for a moment (flaky loads)
         if (consecutiveCleanChecks > 3) return;
         await page.waitForTimeout(500);
         continue;
@@ -255,11 +231,10 @@ async function solveCloudflare(page: any, logger: BrowserLogger, timeoutMs: numb
         await page.mouse.move(cf.frameBox.x, cf.frameBox.y, { steps: 10 });
         await page.mouse.click(cf.frameBox.x, cf.frameBox.y, { delay: 100 });
       } catch (e) {
-          // Ignore click errors (frame might detach)
+          // Ignore click errors
       }
-      await page.waitForTimeout(3000); // Wait for reaction
+      await page.waitForTimeout(3000);
     } else {
-      // Just wait if we see title but no box (maybe loading)
       await page.waitForTimeout(1000);
     }
   }
@@ -268,7 +243,6 @@ async function solveCloudflare(page: any, logger: BrowserLogger, timeoutMs: numb
 
 async function detectCloudflare(page: any) {
   const title = (await page.title())?.toLowerCase?.() ?? '';
-  // Check for the specific Cloudflare challenge iframe
   const frame = page.frames().find((f: any) => f.url().includes('challenges.cloudflare.com/cdn-cgi/challenge-platform'));
   
   let frameBox = null;
@@ -278,7 +252,6 @@ async function detectCloudflare(page: any) {
         const el = document.querySelector('input[type="checkbox"], .challenge-form input');
         if (!el) return null;
         const r = (el as HTMLElement).getBoundingClientRect();
-        // Return absolute page coordinates
         return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
         });
     } catch {
@@ -291,7 +264,6 @@ async function detectCloudflare(page: any) {
 }
 
 async function dismissOverlays(page: any, logger: BrowserLogger) {
-    // Try multiple times as some overlays might appear sequentially
     for (let i = 0; i < 3; i++) {
         for (const selector of OVERLAY_SELECTORS) {
             try {
@@ -314,17 +286,14 @@ async function waitForPrompt(page: any, timeoutMs: number, logger: BrowserLogger
   const deadline = Date.now() + timeoutMs;
   
   while (Date.now() < deadline) {
-    // 1. Check for prompt
     const handle = await page.$(selectors);
     if (handle && await handle.isVisible() && await handle.isEnabled()) {
-       // Double check bounding box
        const box = await handle.boundingBox();
        if (box && box.width > 0 && box.height > 0) {
          return handle;
        }
     }
 
-    // 2. Check/Solve Cloudflare again (in case of reload)
     const cf = await detectCloudflare(page);
     if (cf.challenge) {
       logger('Cloudflare reappeared during prompt wait.');
@@ -332,9 +301,7 @@ async function waitForPrompt(page: any, timeoutMs: number, logger: BrowserLogger
       continue;
     }
 
-    // 3. Dismiss overlays that might block the prompt
     await dismissOverlays(page, logger);
-
     await page.waitForTimeout(500);
   }
   throw new Error('Prompt textarea did not become visible');
@@ -344,26 +311,68 @@ async function waitForAnswer(
   page: any,
   timeoutMs: number,
   initialAssistantCount = 0,
+  logger?: BrowserLogger
 ): Promise<{ text: string; html?: string; elapsedMs: number }> {
   const start = Date.now();
-  await waitForNewAssistantMessage(page, initialAssistantCount, timeoutMs);
-  await page.waitForTimeout(1500); // Let render finish
   
-  const text = await page.evaluate((selectors: string[]) => {
+  logger?.('Waiting for assistant response to start...');
+  await waitForNewAssistantMessage(page, initialAssistantCount, timeoutMs);
+  
+  let lastText = '';
+  let stableCount = 0;
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const currentText = await getLatestAnswerText(page);
+    
+    if (currentText.length > lastText.length) {
+      const newContent = currentText.slice(lastText.length);
+      if (logger && newContent.trim()) {
+           logger(newContent); 
+      }
+      lastText = currentText;
+      stableCount = 0;
+    } else {
+      stableCount++;
+    }
+
+    const isGenerating = await page.$(STOP_BUTTON_SELECTOR);
+    const isDone = await page.$(COPY_BUTTON_SELECTOR);
+    
+    if (!isGenerating && stableCount > 4) { 
+        break;
+    }
+    if (isDone && stableCount > 2) {
+        break;
+    }
+
+    await page.waitForTimeout(500);
+  }
+
+  const text = await getLatestAnswerText(page);
+  const html = await getLatestAnswerHtml(page);
+  
+  return { text, html, elapsedMs: Date.now() - start };
+}
+
+async function getLatestAnswerText(page: any): Promise<string> {
+    return page.evaluate((selectors: string[]) => {
     const node = selectors
-      .map((sel) => document.querySelector(sel))
+      .map((sel) => document.querySelectorAll(sel))
+      .map(nodes => nodes[nodes.length - 1])
       .find((el) => el && el.textContent && el.textContent.trim().length > 0) as HTMLElement | null;
     return node?.innerText ?? '';
   }, ANSWER_SELECTORS);
-  
-  const html = await page.evaluate((selectors: string[]) => {
+}
+
+async function getLatestAnswerHtml(page: any): Promise<string | undefined> {
+    return page.evaluate((selectors: string[]) => {
     const node = selectors
-      .map((sel) => document.querySelector(sel))
+      .map((sel) => document.querySelectorAll(sel))
+      .map(nodes => nodes[nodes.length - 1])
       .find((el) => el && el.innerHTML && el.innerHTML.trim().length > 0) as HTMLElement | null;
     return node?.innerHTML;
   }, ANSWER_SELECTORS);
-  
-  return { text, html, elapsedMs: Date.now() - start };
 }
 
 async function waitForNewAssistantMessage(page: any, initialCount: number, timeoutMs: number) {
@@ -403,7 +412,6 @@ async function selectModel(page: any, desiredLabel: string, logger: BrowserLogge
   }
 }
 
-// Simple helpers for port checking/file access
 async function isPortOpen(urlOrPort: string | number): Promise<boolean> {
     const port = typeof urlOrPort === 'number' ? urlOrPort : parseInt(new URL(urlOrPort).port || '9222');
     return new Promise((resolve) => {
