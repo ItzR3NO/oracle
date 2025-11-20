@@ -355,7 +355,7 @@ async function waitForAnswer(
       }
     }
     
-    if (isThinking && stableCount % 10 === 0 && stableCount > 0) {
+    if (isThinking && stableCount % 25 === 0 && stableCount > 0) {
         logger?.('(Model is thinking...)');
     }
 
