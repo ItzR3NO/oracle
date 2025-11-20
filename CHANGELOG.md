@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Browser-to-API coercion now happens automatically for GPT-5.1 Codex and Gemini (with a console hint) instead of failing when `--engine browser` is set.
 - Gemini client now uses Google’s `@google/genai` SDK (replacing the deprecated `@google/generative-ai`) while preserving streaming final responses and token accounting.
 - Session slugs now trim individual words to 10 characters to keep auto-generated IDs readable when prompts include very long tokens.
+- CLI: `--mode` is now a silent alias for `--engine` for backward compatibility with older docs/scripts.
 
 ## 1.3.0 — 2025-11-19
 

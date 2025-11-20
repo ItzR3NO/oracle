@@ -140,7 +140,25 @@ async function populateRemoteCookiesFromLocal(config: BrowserSessionConfig): Pro
   if (!cookies.length) {
     throw new Error('Unable to locate ChatGPT cookies in the local Chrome profile.');
   }
-  config.inlineCookies = cookies;
+  // Broaden domain coverage: duplicate ChatGPT cookies onto both chatgpt.com and chat.openai.com
+  const widened = cookies.flatMap((cookie) => {
+    const hosts = new Set<string>();
+    if (cookie.domain) {
+      hosts.add(cookie.domain);
+      if (cookie.domain.includes('chatgpt.com')) hosts.add('chat.openai.com');
+      if (cookie.domain.includes('chat.openai.com')) hosts.add('chatgpt.com');
+    } else {
+      hosts.add('chatgpt.com');
+      hosts.add('chat.openai.com');
+    }
+    return Array.from(hosts).map((domain) => ({
+      ...cookie,
+      domain,
+      path: cookie.path ?? '/',
+    }));
+  });
+
+  config.inlineCookies = widened;
   config.inlineCookiesSource = 'remote-local';
   // Force cookie application on the remote host: we already loaded local cookies,
   // so keep sync enabled to inject them instead of skipping the step entirely.
@@ -220,6 +238,9 @@ program
       '-e, --engine <mode>',
       'Execution engine (api | browser). If omitted, oracle picks api when OPENAI_API_KEY is set, otherwise browser.',
     ).choices(['api', 'browser'])
+  )
+  .addOption(
+    new Option('--mode <mode>', 'Alias for --engine (api | browser).').choices(['api', 'browser']).hideHelp(),
   )
   .option('--files-report', 'Show token usage per attached file (also prints automatically when files exceed the token budget).', false)
   .option('-v, --verbose', 'Enable verbose logging for all operations.', false)
