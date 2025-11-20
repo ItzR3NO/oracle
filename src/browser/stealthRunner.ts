@@ -320,11 +320,14 @@ async function waitForAnswer(
   
   let lastText = '';
   let stableCount = 0;
+  let emptyLoops = 0;
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     const currentText = await getLatestAnswerText(page);
-    
+    const isGenerating = await page.$(STOP_BUTTON_SELECTOR);
+    const isDone = await page.$(COPY_BUTTON_SELECTOR);
+
     if (currentText.length > lastText.length) {
       const newContent = currentText.slice(lastText.length);
       if (logger && newContent.trim()) {
@@ -332,21 +335,39 @@ async function waitForAnswer(
       }
       lastText = currentText;
       stableCount = 0;
+      emptyLoops = 0;
     } else {
-      stableCount++;
+      // Only count stability if we actually have content or if we are explicitly done
+      if (currentText.length > 0) {
+        stableCount++;
+      } else {
+        emptyLoops++;
+      }
     }
 
-    const isGenerating = await page.$(STOP_BUTTON_SELECTOR);
-    const isDone = await page.$(COPY_BUTTON_SELECTOR);
+    // Exit Conditions
     
-    if (!isGenerating && stableCount > 4) { 
-        break;
-    }
-    if (isDone && stableCount > 2) {
+    // 1. Explicit "Copy" button means generation is finished.
+    if (isDone) {
+        logger?.('Response complete (Copy button detected).');
         break;
     }
 
-    await page.waitForTimeout(500);
+    // 2. "Stop" button is gone AND text is stable for ~1s AND we have text.
+    // (Poll interval 200ms * 5 = 1s)
+    if (!isGenerating && stableCount > 5 && currentText.length > 0) {
+        logger?.('Response complete (Stable text & no stop button).');
+        break;
+    }
+
+    // 3. Safety: We've waited too long for ANY text to appear (e.g. 30s) despite message bubble existing.
+    // (200ms * 150 = 30s)
+    if (emptyLoops > 150) {
+        logger?.('Warning: Timed out waiting for text content to appear.');
+        break;
+    }
+
+    await page.waitForTimeout(200);
   }
 
   const text = await getLatestAnswerText(page);
