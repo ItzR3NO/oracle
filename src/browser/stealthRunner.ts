@@ -367,9 +367,9 @@ async function waitForAnswer(
         break;
     }
 
-    // 3. Safety: We've waited too long for ANY text to appear (e.g. 30s) despite message bubble existing.
-    if (emptyLoops > 150) {
-        logger?.('Warning: Timed out waiting for text content to appear.');
+    // 3. Safety: We've waited too long for ANY text to appear (e.g. 60s) despite message bubble existing.
+    if (emptyLoops > 300) {
+        logger?.('Warning: Timed out waiting for text content to appear (60s).');
         break;
     }
 

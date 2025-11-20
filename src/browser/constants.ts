@@ -20,6 +20,7 @@ export const ANSWER_SELECTORS = [
   'article[data-testid^="conversation-turn"] .markdown',
   '[data-message-author-role="assistant"] .markdown',
   '[data-message-author-role="assistant"]',
+  'article[data-testid^="conversation-turn"]'
 ];
 
 export const CONVERSATION_TURN_SELECTOR = 'article[data-testid^="conversation-turn"]';
