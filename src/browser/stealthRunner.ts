@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { chromium, firefox, type BrowserContext, type Browser } from 'playwright';
-import type { BrowserRunOptions, BrowserRunResult, BrowserLogger } from './types.js';
+import type { BrowserRunOptions, BrowserRunResult, BrowserLogger, BrowserAttachment } from './types.js';
 import { DEFAULT_MODEL_TARGET, INPUT_SELECTORS, SEND_BUTTON_SELECTOR, ANSWER_SELECTORS, OVERLAY_SELECTORS, STOP_BUTTON_SELECTOR, COPY_BUTTON_SELECTOR } from './constants.js';
 import { estimateTokenCount } from './utils.js';
 
@@ -95,6 +95,11 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
 
   if (config.desiredModel && config.desiredModel !== DEFAULT_MODEL_TARGET) {
     await selectModel(page, config.desiredModel, logger);
+  }
+
+  // Attach Files
+  if (options.attachments && options.attachments.length > 0) {
+    await attachFiles(page, options.attachments, logger);
   }
 
   const promptSelector = '#prompt-textarea';
@@ -208,6 +213,44 @@ export async function runStealth(options: BrowserRunOptions, logger: BrowserLogg
     chromePort: undefined,
     userDataDir: userDataDir ?? undefined,
   };
+}
+
+async function attachFiles(page: any, attachments: BrowserAttachment[], logger: BrowserLogger) {
+    logger(`Attaching ${attachments.length} file(s)...`);
+    
+    try {
+        const fileInput = await page.$('input[type="file"]');
+        if (!fileInput) {
+            logger('Warning: File input not found. Skipping attachments.');
+            return;
+        }
+
+        const filePaths = attachments.map(a => a.path);
+        await fileInput.setInputFiles(filePaths);
+        
+        logger('Files uploaded. Waiting for processing...');
+        // Wait for uploads to process (Send button usually disables during upload)
+        await page.waitForTimeout(2000);
+        
+        // Wait for Send button to become enabled (primary signal of upload complete)
+        const sendButton = await page.$(SEND_BUTTON_SELECTOR);
+        if (sendButton) {
+            try {
+                await page.waitForFunction((selector: string) => {
+                    const btn = document.querySelector(selector);
+                    return btn && !btn.hasAttribute('disabled');
+                }, SEND_BUTTON_SELECTOR, { timeout: 30000 });
+                logger('Upload processing complete.');
+            } catch {
+                logger('Warning: Timed out waiting for upload to finish (Send button remained disabled).');
+            }
+        } else {
+            // Fallback wait if button not found
+            await page.waitForTimeout(3000);
+        }
+    } catch (e) {
+        logger(`File attachment failed: ${e}`);
+    }
 }
 
 async function solveCloudflare(page: any, logger: BrowserLogger, timeoutMs: number): Promise<void> {
